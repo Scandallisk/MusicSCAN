@@ -1,0 +1,14 @@
+## Interface: 120105
+## Title: MusicSCAN
+## Notes: Listen your way with MusicSCAN. A minimalist player for built-in WoW music.
+## Author: SCAN | Kilobytes Development
+## Version: 0.7.1 BETA
+## SavedVariables: MusicSCANDB
+## IconTexture: Interface\Icons\inv_holiday_brewfestbuff_01
+## X-Website: https://kilobytes.dev/musicscan/
+## X-Category: Audio & Video
+## X-ReleaseType: Beta
+
+Database.lua
+MusicSCAN.lua
+UI.lua

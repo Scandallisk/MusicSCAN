@@ -1,0 +1,9 @@
+* text=auto
+*.lua text eol=lf
+*.toc text eol=lf
+*.md text eol=lf
+*.py text eol=lf
+*.json text eol=lf
+*.csv -text
+*.png binary
+*.docx binary

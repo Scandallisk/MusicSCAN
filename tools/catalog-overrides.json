@@ -1,0 +1,119 @@
+{
+  "936340": {
+    "key": "wod-frostfire-magnificent-desolation-h",
+    "title": "Magnificent Desolation",
+    "zone": "Frostfire Ridge",
+    "expansion": "Warlords of Draenor",
+    "sourceFilename": "Sound/music/Draenor/MUS_60_MagnificentDesolation_H.mp3",
+    "fileDataID": 936340,
+    "playbackVerified": true
+  },
+  "53211": {
+    "key": "classic-stormwind-intro",
+    "title": "Stormwind (Introduction)",
+    "zone": "Stormwind",
+    "expansion": "Original World of Warcraft",
+    "sourceFilename": "Sound/music/CityMusic/Stormwind/stormwind_intro-moment.mp3",
+    "fileDataID": 53211,
+    "playbackVerified": false
+  },
+  "53806": {
+    "key": "tbc-shattrath-city-walk-1",
+    "title": "Shattrath City (Variation 1)",
+    "zone": "Shattrath City",
+    "expansion": "The Burning Crusade",
+    "sourceFilename": "Sound/music/ZONEMUSIC/Terokkar/TF_ShattrathWalkUni01.mp3",
+    "fileDataID": 53806,
+    "playbackVerified": false
+  },
+  "229834": {
+    "key": "wrath-grizzly-hills-intro-1",
+    "title": "Grizzly Hills (Introduction)",
+    "zone": "Grizzly Hills",
+    "expansion": "Wrath of the Lich King",
+    "sourceFilename": "Sound/music/ZONEMUSIC/GrizzlyHills/GH_Intro1Uni01.mp3",
+    "fileDataID": 229834,
+    "playbackVerified": true
+  },
+  "441667": {
+    "key": "cata-hyjal-guardians-1",
+    "title": "Guardians of Hyjal (Variation 1)",
+    "zone": "Mount Hyjal",
+    "expansion": "Cataclysm",
+    "sourceFilename": "Sound/music/cataclysm/MUS_GuardiansofHyjal_GU01.mp3",
+    "fileDataID": 441667,
+    "playbackVerified": false
+  },
+  "642308": {
+    "key": "mop-jade-serpent-1",
+    "title": "Temple of the Jade Serpent (Variation 1)",
+    "zone": "Temple of the Jade Serpent",
+    "expansion": "Mists of Pandaria",
+    "sourceFilename": "Sound/music/Pandaria/MUS_50_TempleoftheJadeSerpent_Hero_01.mp3",
+    "fileDataID": 642308,
+    "playbackVerified": false
+  },
+  "1061136": {
+    "key": "wod-nagrand-1",
+    "title": "Nagrand (Variation 1)",
+    "zone": "Nagrand (Draenor)",
+    "expansion": "Warlords of Draenor",
+    "sourceFilename": "sound/music/Draenor/MUS_60_Nagrand_v1.mp3",
+    "fileDataID": 1061136,
+    "playbackVerified": false
+  },
+  "1477339": {
+    "key": "legion-suramar-part-1",
+    "title": "Suramar (Part 1)",
+    "zone": "Suramar",
+    "expansion": "Legion",
+    "sourceFilename": "sound/music/Legion/MUS_70_Suramar_Pt1_H.mp3",
+    "fileDataID": 1477339,
+    "playbackVerified": true
+  },
+  "2175189": {
+    "key": "bfa-boralus-intro",
+    "title": "Boralus (Introduction)",
+    "zone": "Boralus",
+    "expansion": "Battle for Azeroth",
+    "sourceFilename": "sound/music/battleforazeroth/mus_80_boralus_intro.mp3",
+    "fileDataID": 2175189,
+    "playbackVerified": true
+  },
+  "3930252": {
+    "key": "sl-ardenweald-the-dreamer-a",
+    "title": "The Dreamer (Variation A)",
+    "zone": "Ardenweald",
+    "expansion": "Shadowlands",
+    "sourceFilename": "sound/music/shadowlands/mus_90_aw_thedreamer_a.mp3",
+    "fileDataID": 3930252,
+    "playbackVerified": true
+  },
+  "4872420": {
+    "key": "df-azure-span-frost",
+    "title": "Azure Span - Frost",
+    "zone": "The Azure Span",
+    "expansion": "Dragonflight",
+    "sourceFilename": "sound/music/dragonflight/mus_100_azurespan_frost_h.mp3",
+    "fileDataID": 4872420,
+    "playbackVerified": false
+  },
+  "6065790": {
+    "key": "tww-hallowfall-h",
+    "title": "Hallowfall",
+    "zone": "Hallowfall",
+    "expansion": "The War Within",
+    "sourceFilename": "sound/music/warwithin/mus_110_hallowfall_h.mp3",
+    "fileDataID": 6065790,
+    "playbackVerified": false
+  },
+  "7681130": {
+    "key": "midnight-silvermoon-city-h",
+    "title": "Silvermoon City",
+    "zone": "Silvermoon City",
+    "expansion": "Midnight",
+    "sourceFilename": "Sound/Music/Midnight/MUS_120_Silvermoon_City_H.mp3",
+    "fileDataID": 7681130,
+    "playbackVerified": false
+  }
+}

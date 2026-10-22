@@ -1,0 +1,15 @@
+MusicSCAN
+Copyright (c) 2026 SCAN | Kilobytes Development. All rights reserved.
+https://www.kilobytes.dev
+
+MusicSCAN is distributed free of charge for personal use with World of Warcraft.
+You may install and use the addon and make local modifications for personal use.
+No permission to redistribute modified copies, reuse project branding, or
+relicense the original code is granted by this notice. Contact the developer
+through the project website for other permissions.
+
+This notice applies only to original MusicSCAN code, documentation and branding.
+It does not claim ownership of third-party metadata, World of Warcraft, Blizzard
+assets or music. Those remain subject to their respective rights and terms.
+
+The software is provided as is, without warranties of any kind.

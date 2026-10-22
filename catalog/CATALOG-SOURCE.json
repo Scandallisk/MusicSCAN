@@ -1,0 +1,45 @@
+{
+  "repository": "https://github.com/wowdev/wow-listfile",
+  "commit": "0ed693f708da0bbe4d7e4cdf8c85de5ef3d83b03",
+  "commitDate": "2026-10-02T13:31:24Z",
+  "source": "https://raw.githubusercontent.com/wowdev/wow-listfile/0ed693f708da0bbe4d7e4cdf8c85de5ef3d83b03/parts/sound.csv",
+  "sha256": "d2d8df1ac37117654db2e38f3c6a3f4949a30ad859458013dd4316b55d03a417",
+  "totalMusicPaths": 7086,
+  "includedAudioFiles": 5493,
+  "confirmedPlayback": 5,
+  "byExpansion": {
+    "Original World of Warcraft": 200,
+    "The Burning Crusade": 384,
+    "Wrath of the Lich King": 514,
+    "Cataclysm": 525,
+    "Mists of Pandaria": 515,
+    "Warlords of Draenor": 300,
+    "Legion": 395,
+    "Battle for Azeroth": 606,
+    "Shadowlands": 648,
+    "Dragonflight": 398,
+    "The War Within": 504,
+    "Midnight": 504
+  },
+  "byMapping": {
+    "legacy-folder": 1117,
+    "prototype-override": 13,
+    "filename-association": 1498,
+    "unmapped-location": 2865
+  },
+  "zoneMusicLookup": {
+    "source": "https://www.wowhead.com/sounds/zone-music",
+    "soundType": 28,
+    "fileIDs": 6087,
+    "soundKits": 5960
+  },
+  "excludedByReason": {
+    "zone-music-category-not-established": 356,
+    "not-zone-background-music": 91,
+    "expansion-not-established": 5,
+    "scene-voice-effect-or-nonbackground-cue": 552,
+    "explicit-test-beta-or-unused-name": 8,
+    "metadata-not-audio": 191,
+    "outside-requested-expansion-folders": 390
+  }
+}
