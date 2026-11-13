@@ -5,6 +5,7 @@
 *.py text eol=lf
 *.json text eol=lf
 *.csv -text
+catalog/THEME-AUDIT.csv text eol=lf
 *.txt text eol=lf
 *.yml text eol=lf
 *.png binary

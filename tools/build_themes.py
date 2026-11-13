@@ -26,5 +26,5 @@ if args.check:
 else:
     path.write_text(text,encoding='utf-8')
     with (ROOT/'catalog/THEME-AUDIT.csv').open('w',newline='',encoding='utf-8') as f:
-        writer=csv.DictWriter(f,fieldnames=list(audit[0]));writer.writeheader();writer.writerows(audit)
+        writer=csv.DictWriter(f,fieldnames=list(audit[0]),lineterminator='\n');writer.writeheader();writer.writerows(audit)
 print('Theme views verified:',{name:len(keys) for name,keys in members.items()})
