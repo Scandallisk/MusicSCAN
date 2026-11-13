@@ -1,79 +1,68 @@
-# MusicSCAN
+# MusicSCAN 0.8.0 BETA1 — Retail
 
-**Listen your way with MusicSCAN.**
+**Less configuring. More listening.**
 
-**0.7.1 BETA** | World of Warcraft Retail | SCAN | Kilobytes Development
+## What's new
 
-Bring your favorite Blizzard zone music with you. MusicSCAN is a standalone World of Warcraft Retail addon that lets you choose built-in music wherever you are in Azeroth. Listen to Grizzly Hills while standing in Stormwind, or settle in with Magnificent Desolation from Warlords of Draenor.
+- Split library sidebar and track pane with independent scrolling.
+- Cities (174), Forests (376), Taverns (54), PvP (40), Dungeons (213), and Raids (396).
+- All 5,493 original catalog records, selection keys and Favorite IDs retained.
+- Play captures the current ordered library/search results as a fixed playback queue.
+- Automatic Next and explicit Next advance through the queue, wrapping at the end.
+- Repeat ON repeats the active track; Next always advances. Repeat OFF sequences the list.
+- Browsing, search, selection and Favorite edits leave the captured queue unchanged.
+- Loading recovery restarts active A while preserving a different highlighted row B.
+- Login/reload stay idle. Native frame reuse keeps large-library browsing bounded.
 
-Choose a track and press Play. Press Stop to return control to WoW's normal zone music. Less configuring. More listening.
+## Audio change — please read
 
-## Features
+Selected tracks now follow **Master Volume**. MusicSCAN temporarily sets only **Music
+Volume** to zero while active to suppress normal zone music, retaining its exact old
+value. Stop, failure, logout/reload and loading suspension restore it; recovery reacquires
+suppression. Other audio sliders are unchanged. A player's Music-volume adjustment made
+during playback is respected on Stop; raising that slider makes zone music audible again.
+Use **/msc restore** to stop and retry a pending restoration. If a hard crash prevents
+cleanup, restore Music Volume manually in WoW Audio settings.
 
-- **Browse across expansions:** Explore 5,493 individual music-file entries across 12 expansion categories, from Original World of Warcraft through Midnight.
-- **Find music quickly:** Expansions follow release order; zones and tracks are alphabetical. Expand or collapse categories and search by title, zone or expansion.
-- **Keep your favorites:** Click the star to save the highlighted track. The alphabetical Favorites category sits below the expansions and remembers your saved tracks across reloads.
-- **Restore music after loading:** The active track restarts about one second after loading finishes, including when another track is highlighted. Pressing Stop or Play cancels a pending restoration.
-- **Make room for listening:** Move the compact charcoal player by its title bar and resize from the bottom-right grip. The minimap launcher is draggable too.
-- **Pick up where you left off:** Account-wide preferences remember your selection, favorites, category folds, window layout and minimap placement. Login and reload do not start playback automatically.
-- **Use the music already in WoW:** No addon dependencies or bundled audio. MusicSCAN makes no network requests and leaves your global audio settings unchanged.
-
-## Using Favorites
-
-The star acts on the highlighted selection, even when another track is playing. Click the filled star to remove that selection from Favorites; its main library entry stays available. Search Favorites to show your saved list directly. Selecting a different row alone does not change the current music.
+No guessed durations, downloaded/bundled audio or addon dependencies. A 0.2-second handle
+watcher runs only during playback. A 30-second startup watchdog safely stops a file never
+observed playing. Handle termination cannot distinguish every interruption from a natural
+ending. Failed files stop the queue rather than causing endless skipping/retries.
 
 ## Installation
 
-1. Download MusicSCAN-0.7.1-BETA.zip, the installable release asset.
-2. Exit World of Warcraft.
-3. Extract the MusicSCAN folder into World of Warcraft/_retail_/Interface/AddOns/.
-4. Check that the final path is AddOns/MusicSCAN/MusicSCAN.toc, without an extra nested folder.
-5. Launch Retail and enable MusicSCAN in the character-selection AddOns list.
-6. Open the player using its minimap button or /musicscan. Select a track, then click Play.
+Download **MusicSCAN-0.8.0-BETA1.zip**, not GitHub's automatic source-code archive.
+Stop MusicSCAN and /msctest if installed, then fully exit Retail. Replace the MusicSCAN
+folder under `_retail_/Interface/AddOns/`, with MusicSCAN.toc directly inside it.
+Preserve WTF/SavedVariables, MusicSCANDB and the folder name. Disable the standalone
+MusicSCANPlaybackTest addon if previously used. Fully restart to discover the new modules.
 
-Use the installable release ZIP rather than GitHub’s automatic source-code archive.
+Open **/msc** or **/musicscan**. Use **/msc reset** for the new 760x560 default window;
+minimum size is 620x460. Choose a library and track, then Play. If the selected track is
+outside the current view, Play uses that selection alone. Favorites target the highlighted
+row; Repeat targets the active track. Closing the window keeps audio playing.
+Commands: play, stop, next, repeat, status, restore, reset, help.
 
-### Upgrading
+## Testing and limits
 
-For an upgrade, keep a rollback copy and replace only the MusicSCAN addon folder while WoW is closed. Keep the WTF folder and SavedVariables to retain favorites and preferences. The database is still MusicSCANDB. Confirm 0.7.1 BETA in the player footer or title-icon tooltip.
+The owner confirmed POC3 in-game: zone suppression, Stop restoration, automatic Boralus
+to Dreamer, Next/wrap and Repeat. The owner also approved the integrated local build.
+Mocked Lua 5.1/5.4 tests pass for catalog identities, themed libraries, split native UI,
+queue stability, Favorites, Next/Repeat, loading/cancellation and volume restoration.
+This is not a complete listening review or validation of every travel route/client build.
+Theme assignments are reviewed metadata associations, not exhaustive official playlists.
+Unknown locations remain in All Music and existing provisional labels remain provisional.
 
-## All slash commands
+Target: **Retail 12.1.5.70783**, interface **120105**. Forever remains a separate release;
+no Classic/Forever compatibility is claimed for this ZIP.
 
-Both aliases accept the same subcommands.
+## Feedback and rights
 
-| Command and alias | Action |
-| --- | --- |
-| `/musicscan` or `/msc` | Open or close the player. |
-| `/musicscan play` or `/msc play` | Start or restart the highlighted track. |
-| `/musicscan stop` or `/msc stop` | Release the MusicSCAN override and return music control to WoW. |
-| `/musicscan reset` or `/msc reset` | Restore the default window size and position and minimap placement; show the player. Keep favorites and selection. |
-| `/musicscan help` or `/msc help` | Print the command summary. Unknown command text also shows help. |
+[Report issues](https://github.com/Scandallisk/MusicSCAN/issues) with title, location,
+FileDataID, client build, exact Lua error and steps. Include library/search/Repeat state
+for queue issues, and travel route for recovery issues. Do not attach account details
+or full SavedVariables files.
 
-## Patch notes
-
-**0.7.1 BETA — 2026-10-22**
-
-- Restore the active track after loading screens, allowing one second for zone audio to initialize.
-- Keep the active track when another row is highlighted; restart the file from the beginning.
-- Cancel pending restoration on Stop, explicit Play, a subsequent transition or logout.
-- Reject stale callbacks so canceled work cannot override a later playback choice.
-- Clear the Playing display when recovery fails or Sound or Music is disabled.
-- Keep login and reload idle, and retain Favorites, layout preferences and the existing catalog.
-
-## Beta notes
-
-**Loading recovery.** The new recovery path has passed mocked event and timer checks. Its actual audio behavior still needs a Retail Delve-to-Silvermoon hearth test before public upload. The file restarts; exact playback-position restoration is unavailable.
-
-**Catalog review.** The library is filtered for zone and location background music, with sound effects, voice recordings and explicit cinematic or scene cues outside the import policy. The bulk import has not had a complete in-game listening review. Some files may be unavailable, silent or need naming and location corrections.
-
-**Names and variations.** The 5,493 entries are individual audio files, not a count of unique compositions or a guarantee of every current-client music file. Friendly names and zone associations are source-derived and provisional. Other Zone Music holds eligible music without an established specific zone.
-
-**Native repetition.** WoW repeats PlayMusic requests in the tested client, even with its Loop Music option off. This beta provides manual Stop without estimated timing, a seek bar, loop controls or play-once playback. Playing reports an accepted request; MusicSCAN cannot verify audible output or detect every engine interruption.
-
-**Audio and feedback.** Enable Sound and Music in WoW's Audio settings and check Music Volume. For an incorrect or silent entry, report its title, expansion and tooltip FileDataID. For Lua errors, include the error text and the action that triggered it.
-
-## Credits
-
-Developed by SCAN | Kilobytes Development. Visit https://kilobytes.dev/musicscan/. Catalog sources include wowdev/wow-listfile and Wowhead Zone Music, with curated mappings and direct in-game checks. World of Warcraft and its music belong to Blizzard Entertainment and their respective rights holders. MusicSCAN is an independent community addon and includes no audio files.
-
-Source credits: https://github.com/wowdev/wow-listfile and https://www.wowhead.com/sounds/zone-music.
+SCAN | Kilobytes Development — https://kilobytes.dev/musicscan/
+All Rights Reserved; personal installation/local modification per LICENSE.txt. Blizzard
+audio and third-party metadata retain their rights. Public source is not an open-source license.

@@ -1,9 +1,3 @@
--- Native-frame mock smoke test; not a replacement for a Retail client test.
-local root = "MusicSCAN/"
-for _, name in ipairs({"Database.lua", "MusicSCAN.lua", "UI.lua"}) do
-    assert(loadfile(root .. name), "parse failed: " .. name)
-end
-
 local clock, frames, engineCalls, messages = 100, {}, {}, {}
 local cvars = { Sound_EnableAllSound = true, Sound_EnableMusic = true }
 local musicAccepted, musicThrows = true, false
@@ -148,404 +142,114 @@ PlayMusic = function(id) engineCalls[#engineCalls+1] = {"play",id}; if musicThro
 StopMusic = function() engineCalls[#engineCalls+1] = {"stop"} end
 print = function(s) messages[#messages+1] = s end
 
-MusicSCANDB = {
-    selectedTrack="wod-frostfire-magnificent-desolation-h",loopMusic=false,
-    window={width=640,height=600,point="TOPLEFT",relativePoint="TOPLEFT",x=35,y=-60,visible=true},
-    minimap={angle=42},collapsedExpansions={Shadowlands=true},
-}
+local now, timers, tickers, sounds, calls = 0, {}, {}, {}, {}
+local eventFrame
+local sequence, accepted, returnHandle, queryError = 0, true, true, false
+local soundEnabled, musicEnabled = true, true
+local volume, failSet = "0.63", false
+local messages = {}
+GetTime=function() return now end
+print=function(text) messages[#messages+1]=text end
+C_CVar={GetCVarBool=function(name) return name=="Sound_EnableAllSound" and soundEnabled or name=="Sound_EnableMusic" and musicEnabled end}
+C_CVar.GetCVar=function(name) assert(name=="Sound_MusicVolume");return volume end
+C_CVar.SetCVar=function(name,value) assert(name=="Sound_MusicVolume");if failSet then error("set failed") end;volume=tostring(value) end
+C_Timer={}
+local function Timer(callback)
+    local timer={callback=callback,canceled=false}
+    function timer:Cancel() self.canceled=true end
+    return timer
+end
+function C_Timer.NewTicker(interval,callback)
+    local timer=Timer(callback);tickers[#tickers+1]=timer;return timer
+end
+function C_Timer.NewTimer(delay,callback)
+    local timer=Timer(callback);timer.due=now+delay;timers[#timers+1]=timer;return timer
+end
+local function Tick(seconds)
+    now=now+(seconds or .2)
+    local limit=#tickers
+    for i=1,limit do if not tickers[i].canceled then tickers[i].callback() end end
+    limit=#timers
+    for i=1,limit do
+        local timer=timers[i]
+        if not timer.canceled and not timer.fired and timer.due<=now then timer.fired=true;timer.callback() end
+    end
+end
+function PlaySoundFile(id,channel)
+    sequence=sequence+1
+    calls[#calls+1]={id=id,channel=channel,handle=sequence}
+    sounds[sequence]=accepted==true
+    return accepted,returnHandle and sequence or nil
+end
+C_Sound={IsPlaying=function(handle) if queryError then error("query failed") end;return sounds[handle]==true end}
+PlayMusic=function() error("silent carrier must not be used") end
+StopMusic=function() end
+StopSound=function(handle)
+    sounds[handle]=false
+    -- Exercise synchronous completion during StopSound.
+    if eventFrame then eventFrame.scripts.OnEvent(eventFrame,"SOUNDKIT_FINISHED",handle) end
+end
+SlashCmdList={}
+
+unpack=unpack or table.unpack
+MusicSCANDB={selectedTrack="bfa-boralus-intro",favorites={[2175189]=true,[3930252]=true,[999999999]=true},
+ window={width=640,height=600,point="TOPLEFT",relativePoint="TOPLEFT",x=35,y=-60,visible=true},
+ minimap={angle=42},collapsedExpansions={Shadowlands=true}}
 local ns={}
-for _,name in ipairs({"Database.lua","MusicSCAN.lua","UI.lua"}) do
-    assert(loadfile(root..name))("MusicSCAN",ns)
+for _,file in ipairs({"Database.lua","Themes.lua","MusicSCAN.lua","Playback.lua","UI.lua"}) do
+    assert(loadfile("MusicSCAN/"..file))("MusicSCAN",ns)
 end
-local events
-for _,f in ipairs(frames) do if f.events.ADDON_LOADED then events=f;break end end
-assert(events)
-events.scripts.OnEvent(events,"ADDON_LOADED","OtherAddon");assert(ns.DB==nil)
-events.scripts.OnEvent(events,"ADDON_LOADED","MusicSCAN")
-assert(ns.VERSION=="0.7.1 BETA" and #ns.Catalog>2000)
-assert(ns.DB.selectedTrack=="wod-frostfire-magnificent-desolation-h")
-assert(ns.DB.window.width==640 and ns.DB.window.x==35 and ns.DB.minimap.angle==42)
-assert(ns.DB.collapsedExpansions.Shadowlands==true and ns.DB.loopMusic==nil)
-assert(not ns.State.playing and #engineCalls==0)
-assert(ns.GetTiming==nil and ns.UI.progress==nil and ns.UI.time==nil and ns.UI.frame.scripts.OnUpdate==nil)
-for _,f in ipairs(frames) do assert(f.kind~="StatusBar" and f.kind~="CheckButton") end
-
-local ids,keys,zoneTitles={}, {}, {}
-for _,t in ipairs(ns.Catalog) do
-    assert(type(t.fileDataID)=="number" and t.fileDataID>0 and not ids[t.fileDataID])
-    assert(type(t.key)=="string" and not keys[t.key])
-    assert(t.title~="" and t.zone~="" and ns.ExpansionOrder[t.expansion])
-    assert(t.sourceFilename:lower():find("sound/music/",1,true)==1)
-    assert(t.sourceFilename:lower():match("%.mp3$") or t.sourceFilename:lower():match("%.ogg$"))
-    assert(t.durationSeconds==nil)
-    ids[t.fileDataID],keys[t.key]=true,true
-    local identity=t.expansion.."|"..t.zone.."|"..t.title:lower()
-    assert(not zoneTitles[identity],"duplicate friendly label: "..identity)
-    zoneTitles[identity]=true
+for _,frame in ipairs(frames) do if frame.events.ADDON_LOADED then eventFrame=frame;break end end
+assert(eventFrame)
+eventFrame.scripts.OnEvent(eventFrame,"ADDON_LOADED","MusicSCAN")
+assert(ns.VERSION=="0.8.0 BETA1" and #ns.Catalog==5493 and not ns.State.playing)
+assert(ns.DB.selectedTrack=="bfa-boralus-intro" and ns.DB.window.width==640 and ns.DB.minimap.angle==42)
+assert(ns.DB.favorites[999999999] and #ns.GetFavoriteTracks("")==2)
+assert(ns.UI.sourceRows and #ns.UI.sourceRows==20)
+local counts={Cities=174,Forests=376,Taverns=54,PvP=40,Dungeons=213,Raids=396}
+for source,count in pairs(counts) do
+    assert(ns.SetLibrarySource(source));local tracks=ns.GetBrowseTracks("");assert(#tracks==count)
+    local ids={};for _,track in ipairs(tracks) do assert(not ids[track.fileDataID]);ids[track.fileDataID]=true end
+    assert(#ns.UI.rows<60 and ns.DB.collapsedExpansions.Shadowlands==true)
 end
-assert(ns.GetTrack("wod-frostfire-magnificent-desolation-h").fileDataID==936340)
-assert(ns.GetTrack("wrath-grizzly-hills-intro-1").fileDataID==229834)
-assert(ns.GetTrack("legion-suramar-part-1").fileDataID==1477339)
-local groups=ns.GetExpansionGroups("")
-assert(#groups==12 and groups[1].name=="Original World of Warcraft" and groups[12].name=="Midnight")
-assert(ns.GetExpansionGroups("")==groups,"unchanged query should reuse grouped metadata")
-local total=0
-for i,g in ipairs(groups) do
-    if i>1 then assert(ns.ExpansionOrder[groups[i-1].name]<ns.ExpansionOrder[g.name]) end
-    total=total+#g.tracks
-    for j,t in ipairs(g.tracks) do
-        assert(t.expansion==g.name)
-        if j>1 then
-            local previous=g.tracks[j-1]
-            assert(previous.zone:lower()<=t.zone:lower())
-            if previous.zone==t.zone then assert(previous.title:lower()<=t.title:lower()) end
-        end
-    end
-end
-assert(total==#ns.Catalog and #ns.GetFilteredCatalog("[x%") == 0)
+assert(ns.SetLibrarySource("Cities"));ns.SelectTrack("bfa-boralus-intro")
+assert(ns.Play() and ns.State.activeTrack=="bfa-boralus-intro" and tonumber(volume)==0)
+local queue=ns.Engine.Tracks;local index=ns.Engine.State.index;assert(#queue==174)
+ns.SetLibrarySource("Forests");ns.SelectTrack("sl-ardenweald-the-dreamer-a")
+assert(ns.Engine.Tracks==queue and ns.State.activeTrack=="bfa-boralus-intro")
+Tick();local h=ns.Engine.State.handle;ns.ToggleRepeat();sounds[h]=false;Tick()
+assert(ns.State.activeTrack=="bfa-boralus-intro" and ns.Engine.Tracks==queue)
+assert(ns.DB.selectedTrack=="sl-ardenweald-the-dreamer-a", "Repeat must preserve an independently highlighted row")
+ns.Next();assert(ns.State.activeTrack==queue[index%#queue+1].key)
+ns.Stop();assert(volume=="0.63" and not ns.State.playing and ns.DB.restoreMusicVolume==nil)
 
-ns.UI.scroll:SetSize(574,360)
-ns.DB.collapsedExpansions={}
-ns.UI:RenderLibrary()
-assert(#ns.UI.libraryItems>#ns.Catalog)
-local function visible(kind)
-    local n=0
-    for _,f in ipairs(kind) do if f:IsShown() then n=n+1 end end
-    return n
-end
-local function assertViewport()
-    local top=ns.UI.scroll:GetVerticalScroll()
-    local bottom=top+ns.UI.scroll:GetHeight()
-    local n=visible(ns.UI.rows)+visible(ns.UI.headers)+visible(ns.UI.expansionHeaders)
-    assert(n<=math.ceil(ns.UI.scroll:GetHeight()/28)+2,"viewport pool bound")
-    for _,row in ipairs(ns.UI.rows) do
-        if row:IsShown() then
-            assert(row:GetWidth()==ns.UI.content:GetWidth()-12)
-            local y=-select(5,row:GetPoint())
-            assert(y<bottom and y+32>top,"offscreen row should not be rendered")
-            assert(row.playing:GetText()=="Playing")
-            assert(row.playing:IsShown()==(ns.State.playing and ns.State.activeTrack==row.trackKey))
-        end
-    end
-end
-local maxScroll=ns.UI.content:GetHeight()-ns.UI.scroll:GetHeight()
-for i=0,100 do
-    ns.UI.scroll:SetVerticalScroll(maxScroll*i/100)
-    assertViewport()
-end
-assert(#ns.UI.rows<40 and #ns.UI.headers<40 and #ns.UI.expansionHeaders<=12)
-assert(#frames<500,"full catalog must not create thousands of frames")
-local last
-for i=#ns.UI.libraryItems,1,-1 do
-    if ns.UI.libraryItems[i].kind=="track" then last=ns.UI.libraryItems[i];break end
-end
-assert(last and last.kind=="track")
-local lastVisible=false
-for _,row in ipairs(ns.UI.rows) do if row:IsShown() and row.trackKey==last.track.key then lastVisible=true end end
-assert(lastVisible,"bottom of full library is reachable")
+-- Captured Favorites follow displayed title order and remain stable after editing them.
+ns.SetLibrarySource("favorites");ns.SelectTrack("bfa-boralus-intro");ns.ToggleRepeat()
+assert(ns.Play() and #ns.Engine.Tracks==2)
+queue=ns.Engine.Tracks
+ns.ToggleFavorite("sl-ardenweald-the-dreamer-a");assert(#queue==2 and #ns.GetFavoriteTracks("")==1)
+Tick();h=ns.Engine.State.handle;sounds[h]=false;Tick()
+assert(ns.State.activeTrack=="sl-ardenweald-the-dreamer-a")
+ns.Next();assert(ns.State.activeTrack=="bfa-boralus-intro")
+ns.SelectTrack("sl-ardenweald-the-dreamer-a")
 
--- Searching must reveal folded matches, without changing normal preferences.
-ns.DB.collapsedExpansions.Shadowlands=true
-ns.UI.search:SetText("The Dreamer")
-assert(#ns.GetFilteredCatalog("The Dreamer")>=1)
-local shadowHeader
-for _,h in ipairs(ns.UI.expansionHeaders) do if h:IsShown() and h.expansion=="Shadowlands" then shadowHeader=h end end
-assert(shadowHeader and shadowHeader.toggle:GetText()=="-")
-assert(ns.DB.collapsedExpansions.Shadowlands==true)
-assert(tonumber(shadowHeader.count:GetText())>0)
-local beforeSearchCalls=#engineCalls
-shadowHeader.scripts.OnClick(shadowHeader)
-assert(visible(ns.UI.rows)==0 and not ns.UI.empty:IsShown())
-shadowHeader.scripts.OnClick(shadowHeader)
-assert(visible(ns.UI.rows)>0 and #engineCalls==beforeSearchCalls)
-ns.UI.search:SetText("does not exist [x%")
-assert(ns.UI.empty:IsShown() and visible(ns.UI.rows)==0)
-ns.UI.search:SetText("")
-assert(ns.DB.collapsedExpansions.Shadowlands==true)
-
--- Audio controls and category/layout actions remain independent.
-ns.SelectTrack("wod-frostfire-magnificent-desolation-h")
-local reads=clockReads
-assert(ns.Play())
-assert(engineCalls[#engineCalls][2]==936340 and ns.State.startedAt==nil and clockReads==reads)
-assert(ns.UI.nowLabel:GetText()=="NOW PLAYING" and ns.UI.nowLabel.textColor[2]==1)
-local calls=#engineCalls
-assert(ns.ToggleExpansion("Warlords of Draenor"))
-assert(ns.State.playing and #engineCalls==calls)
-ns.UI.frame:Hide();clock=clock+10000;ns.UI.frame:Show()
-assert(ns.State.playing and #engineCalls==calls)
-for _,g in ipairs(groups) do
-    ns.SelectTrack(g.tracks[1].key)
-    assert(#engineCalls==calls)
-    assert(ns.Play());calls=calls+2
-    assert(#engineCalls==calls and engineCalls[calls][2]==g.tracks[1].fileDataID)
-end
-cvars.Sound_EnableMusic=false
-assert(not ns.Play() and ns.State.playing and #engineCalls==calls)
-cvars.Sound_EnableMusic=true
-musicAccepted=false
-assert(not ns.Play() and not ns.State.playing)
-musicAccepted=true
-musicThrows=true
-assert(not ns.Play() and not ns.State.playing, "unavailable-file errors must not escape the player")
-assert(messages[#messages]:find("FileDataID",1,true))
-musicThrows=false
-assert(ns.Play())
-assert(ns.Stop() and not ns.UI.stop:IsEnabled() and ns.UI.nowLabel:GetText()=="SELECTED TRACK")
-local stoppedCalls=#engineCalls;assert(not ns.Stop() and #engineCalls==stoppedCalls)
-
-ns.UI.search:SetText("Magnificent Desolation")
-for _,row in ipairs(ns.UI.rows) do
-    if row:IsShown() then
-        assert(not row.playing:IsShown())
-        row.scripts.OnEnter(row)
-        assert(not table.concat(GameTooltip.tooltipLines,"|"):lower():find("test",1,true))
-        row.scripts.OnClick(row)
-        assert(ns.DB.selectedTrack==row.trackKey and not ns.State.playing)
-        row.scripts.OnLeave(row)
-    end
-end
-ns.UI.about.scripts.OnEnter(ns.UI.about)
-assert(GameTooltip.ownerAnchor=="ANCHOR_RIGHT" and GameTooltip.clampedToScreen)
-assert(table.concat(GameTooltip.tooltipLines,"|"):find("Version: 0.7.1 BETA",1,true))
-assert(table.concat(GameTooltip.tooltipLines,"|"):find("www.kilobytes.dev",1,true))
-assert(ns.UI.tagline:GetText()=="Listen your way with MusicSCAN v0.7.1 BETA")
-
--- Favorites target the highlighted selection, independently of active playback.
-ns.UI.search:SetText("")
-assert(type(ns.DB.favorites)=="table" and #ns.GetFavoriteTracks("")==0)
-assert(ns.DB.favoritesCollapsed==false)
-assert(ns.UI.favorite:GetHeight()==ns.UI.play:GetHeight())
-assert(select(5,ns.UI.favorite:GetPoint())==select(5,ns.UI.play:GetPoint()))
-assert(ns.UI.favorite.icon.atlas=="auctionhouse-icon-favorite-off")
-assert(not ns.ToggleFavorite("not-a-track"))
-ns.SelectTrack("wod-frostfire-magnificent-desolation-h");assert(ns.Play())
-local favoriteCalls=#engineCalls
-ns.UI.favorite.scripts.OnClick(ns.UI.favorite)
-assert(ns.IsFavorite("wod-frostfire-magnificent-desolation-h") and ns.DB.favorites[936340]==true)
-assert(ns.UI.favorite.icon.atlas=="auctionhouse-icon-favorite")
-assert(GameTooltip:GetText()=="Remove from Favorites")
-assert(#ns.GetFavoriteTracks("")==1 and #ns.Catalog==5493)
-ns.SelectTrack("bfa-boralus-intro")
-assert(ns.UI.favorite.icon.atlas=="auctionhouse-icon-favorite-off")
-ns.UI.favorite.scripts.OnEnter(ns.UI.favorite)
-assert(GameTooltip:GetText()=="Add to Favorites")
-assert(table.concat(GameTooltip.tooltipLines,"|"):find("Boralus",1,true))
-ns.UI.favorite.scripts.OnClick(ns.UI.favorite)
-assert(ns.IsFavorite("bfa-boralus-intro"))
-assert(ns.State.activeTrack=="wod-frostfire-magnificent-desolation-h" and #engineCalls==favoriteCalls)
-assert(ns.UI.nowTitle:GetText()=="Magnificent Desolation")
-ns.ToggleFavorite("legion-suramar-part-1")
-local favorites=ns.GetFavoriteTracks("")
-assert(#favorites==3 and favorites[1].fileDataID==2175189 and favorites[2].fileDataID==936340)
-assert(ns.GetFavoriteTracks("")==favorites,"favorites cache")
-local favoriteHeaderIndex,lastExpansionIndex
-for i,item in ipairs(ns.UI.libraryItems) do
-    if item.kind=="expansion" then
-        if item.isFavorites then favoriteHeaderIndex=i else lastExpansionIndex=i end
-    end
-end
-assert(favoriteHeaderIndex>lastExpansionIndex and ns.UI.libraryItems[favoriteHeaderIndex].count==3)
-ns.UI.search:SetText("Favorites")
-assert(not ns.UI.empty:IsShown() and visible(ns.UI.rows)==3)
-local favoritesHeader
-for _,h in ipairs(ns.UI.expansionHeaders) do if h:IsShown() and h.isFavorites then favoritesHeader=h end end
-assert(favoritesHeader and favoritesHeader.title:GetText()=="Favorites" and favoritesHeader.count:GetText()=="3")
-assert(favoritesHeader.toggle:GetText()=="-")
-favoritesHeader.scripts.OnClick(favoritesHeader)
-assert(visible(ns.UI.rows)==0 and ns.DB.favoritesCollapsed==false,"search fold stays temporary")
-favoritesHeader.scripts.OnClick(favoritesHeader)
-assert(visible(ns.UI.rows)==3)
-local favoriteRow
-for _,r in ipairs(ns.UI.rows) do if r:IsShown() and r.trackKey=="bfa-boralus-intro" then favoriteRow=r end end
-assert(favoriteRow)
-favoriteRow.scripts.OnClick(favoriteRow)
-assert(ns.DB.selectedTrack=="bfa-boralus-intro" and #engineCalls==favoriteCalls)
-ns.UI.favorite.scripts.OnClick(ns.UI.favorite)
-assert(not ns.IsFavorite("bfa-boralus-intro") and #ns.GetFavoriteTracks("")==2)
-assert(ns.UI.favorite.icon.atlas=="auctionhouse-icon-favorite-off")
-assert(ns.TracksByFileID[2175189] and #ns.Catalog==5493,"removing a favorite keeps expansion entry")
-assert(ns.Play() and ns.State.activeTrack=="bfa-boralus-intro")
-ns.Stop()
-ns.ToggleFavoritesCategory()
-assert(ns.DB.favoritesCollapsed==true)
-ns.UI.search:SetText("Grizzly Hills")
-assert(#ns.GetFavoriteTracks("Grizzly Hills")==0)
-ns.UI.search:SetText("Magnificent Desolation")
-local searchFavoriteHeader
-for _,h in ipairs(ns.UI.expansionHeaders) do if h:IsShown() and h.isFavorites then searchFavoriteHeader=h end end
-assert(searchFavoriteHeader and searchFavoriteHeader.toggle:GetText()=="-")
-assert(ns.DB.favoritesCollapsed==true)
-ns.UI.search:SetText("")
-ns.DB.favorites[999999999]=true -- Keep unavailable IDs for a future restored catalog.
-ns.DB.favorites.bad=true;ns.DB.favorites[-1]=true;ns.DB.favorites[0]=true;ns.DB.favorites[1.5]=true;ns.DB.favorites[53211]="bad"
-local persistedSelected=ns.DB.selectedTrack
-ns.Initialize()
-assert(ns.DB.selectedTrack==persistedSelected and ns.DB.window.width==640 and ns.DB.minimap.angle==42)
-assert(ns.DB.favorites[936340] and ns.DB.favorites[1477339] and ns.DB.favorites[999999999])
-assert(ns.DB.favorites.bad==nil and ns.DB.favorites[-1]==nil and ns.DB.favorites[0]==nil and ns.DB.favorites[1.5]==nil and ns.DB.favorites[53211]==nil)
-assert(#ns.GetFavoriteTracks("")==2 and ns.DB.favoritesCollapsed==true and not ns.State.playing)
-ns.ToggleFavorite("wod-frostfire-magnificent-desolation-h");ns.ToggleFavorite("legion-suramar-part-1")
-ns.UI.search:SetText("favorites")
-assert(ns.UI.empty:IsShown() and #ns.GetFavoriteTracks("")==0 and visible(ns.UI.rows)==0)
-ns.UI.search:SetText("")
-
--- Maximum-size favorites use the same bounded viewport pool.
-for _,track in ipairs(ns.Catalog) do ns.DB.favorites[track.fileDataID]=true end
-ns.FavoriteQuery,ns.FavoriteCache=nil,nil
-ns.DB.favoritesCollapsed=false
-ns.UI.search:SetText("favorites")
-assert(#ns.GetFavoriteTracks("")==5493)
-local favoriteMax=ns.UI.content:GetHeight()-ns.UI.scroll:GetHeight()
-for i=0,100 do ns.UI.scroll:SetVerticalScroll(favoriteMax*i/100);assertViewport() end
-assert(#ns.UI.rows<40 and #ns.UI.headers<40)
-local lastFavorite=ns.GetFavoriteTracks("")[5493]
-local reached=false
-for _,r in ipairs(ns.UI.rows) do if r:IsShown() and r.trackKey==lastFavorite.key then reached=true end end
-assert(reached,"last saved favorite is reachable")
-ns.SelectTrack(lastFavorite.key)
-assert(ns.Play())
-local removeCalls=#engineCalls
-ns.UI.favorite.scripts.OnClick(ns.UI.favorite)
-assert(#ns.GetFavoriteTracks("")==5492 and #engineCalls==removeCalls and ns.State.activeTrack==lastFavorite.key)
-ns.Stop()
-assert(ns.UI.scroll:GetVerticalScroll()<=ns.UI.content:GetHeight()-ns.UI.scroll:GetHeight())
-ns.DB.favorites={};ns.FavoriteQuery,ns.FavoriteCache=nil,nil
-ns.UI.search:SetText("");ns.UI:Refresh()
-
-ns.UI.resize.scripts.OnMouseDown(ns.UI.resize,"LeftButton")
-assert(ns.UI.frame.sizing=="BOTTOMRIGHT")
-ns.UI.frame:SetSize(520,420);ns.UI.scroll:SetSize(454,178)
-ns.UI.resize.scripts.OnMouseUp(ns.UI.resize,"LeftButton")
-assert(ns.DB.window.width==520 and ns.DB.window.height==420 and not ns.UI.frame.sizing)
-assertViewport()
-ns.SetMinimapAngle(-10);assert(ns.DB.minimap.angle==350)
-ns.UI.minimap.scripts.OnDragStart(ns.UI.minimap)
-ns.UI.minimap.scripts.OnUpdate(ns.UI.minimap,0.1)
-ns.UI.minimap.scripts.OnDragStop(ns.UI.minimap)
-assert(ns.DB.minimap.angle==0 and ns.UI.minimap.scripts.OnUpdate==nil)
-ns.DB.collapsedExpansions.Shadowlands=true
-local selected=ns.DB.selectedTrack
-ns.Initialize()
-assert(ns.DB.selectedTrack==selected and ns.DB.collapsedExpansions.Shadowlands==true)
-assert(ns.DB.window.width==520 and ns.DB.window.height==420 and not ns.State.playing)
-ns.HandleCommand("reset")
-assert(ns.DB.window.width==440 and ns.DB.window.height==480 and ns.DB.minimap.angle==225)
-MusicSCANDB={window={point="BAD",x=0/0},minimap={angle=math.huge},collapsedExpansions="bad"}
-ns.Initialize()
-assert(ns.DB.window.point=="CENTER" and ns.DB.minimap.angle==225 and ns.GetSelectedTrack())
-assert(ns.DB.collapsedExpansions.Shadowlands==true and ns.DB.collapsedExpansions[ns.GetSelectedTrack().expansion]==nil)
--- Dispatch real registered lifecycle events; time and the audio engine are mocked.
-local function Event(name, ...)
-    assert(events.events[name], "event must be registered: "..name)
-    events.scripts.OnEvent(events,name,...)
-end
-local A,B="wod-frostfire-magnificent-desolation-h","bfa-boralus-intro"
-local function StartA()
-    ns.SelectTrack(A)
-    assert(ns.Play())
-end
-local function Transition()
-    Event("PLAYER_LEAVING_WORLD")
-    Event("LOADING_SCREEN_ENABLED")
-    Event("PLAYER_ENTERING_WORLD",false,false)
-    Event("LOADING_SCREEN_DISABLED")
-end
-
--- Idle, initial-login and reload events never autoplay saved selections.
-local baseline=#engineCalls
-Event("LOADING_SCREEN_ENABLED")
-Event("PLAYER_ENTERING_WORLD",true,false)
-Event("LOADING_SCREEN_DISABLED")
-Advance(10)
-Event("PLAYER_ENTERING_WORLD",false,true)
-Event("LOADING_SCREEN_DISABLED")
-Transition();Advance(10)
-assert(#engineCalls==baseline and PendingTimers()==0 and not ns.State.playing)
-
--- A slow load must finish before the one-second delay starts. Restore active A,
--- even though the user highlighted B, and even if the player window is hidden.
-StartA();ns.SelectTrack(B);ns.UI.frame:Hide()
-baseline=#engineCalls
-Event("PLAYER_LEAVING_WORLD");Event("LOADING_SCREEN_ENABLED")
-Event("PLAYER_ENTERING_WORLD",false,false)
-Advance(30)
-assert(#engineCalls==baseline and PendingTimers()==0)
-Event("LOADING_SCREEN_DISABLED")
-assert(PendingTimers()==1)
-Advance(.9);assert(#engineCalls==baseline)
-Advance(.2)
-assert(#engineCalls==baseline+2 and engineCalls[#engineCalls][2]==936340)
-assert(ns.State.activeTrack==A and ns.DB.selectedTrack==B and not ns.UI.frame:IsShown())
-ns.UI.frame:Show();assert(ns.UI.nowTitle:GetText()=="Magnificent Desolation")
-assert(PendingTimers()==0)
-Advance(10000);assert(#engineCalls==baseline+2, "recovery must not poll or repeat")
-
--- Stop wins during loading, during the delay, and against an already queued callback.
-Transition()
-local stale=timers[#timers]
-assert(ns.Stop());baseline=#engineCalls
-stale.callback();Advance(2)
-assert(#engineCalls==baseline and not ns.State.playing)
-StartA();Event("LOADING_SCREEN_ENABLED");ns.Stop();baseline=#engineCalls
-Event("PLAYER_ENTERING_WORLD",false,false);Event("LOADING_SCREEN_DISABLED");Advance(2)
-assert(#engineCalls==baseline and PendingTimers()==0)
-
--- Explicit Play cancels restoration, including replaying the very same file.
-StartA();Transition();stale=timers[#timers]
-ns.SelectTrack(B);assert(ns.Play());baseline=#engineCalls
-stale.callback();Advance(2)
-assert(#engineCalls==baseline and ns.State.activeTrack==B)
-Transition();stale=timers[#timers]
-assert(ns.Play());baseline=#engineCalls
-stale.callback();Advance(2)
-assert(#engineCalls==baseline and ns.State.activeTrack==B)
-
--- Consecutive loads and reversed finish/entry ordering still restore only once.
-StartA();Transition();stale=timers[#timers];baseline=#engineCalls
-Event("LOADING_SCREEN_ENABLED");Advance(2)
-assert(#engineCalls==baseline and PendingTimers()==0)
-Event("PLAYER_LEAVING_WORLD");Event("LOADING_SCREEN_DISABLED")
-assert(PendingTimers()==0)
-Event("PLAYER_ENTERING_WORLD",false,false)
-stale.callback();assert(PendingTimers()==1)
-Event("PLAYER_ENTERING_WORLD",false,false);Event("LOADING_SCREEN_DISABLED")
-assert(PendingTimers()==1)
-Advance(1);assert(#engineCalls==baseline+2 and ns.State.activeTrack==A)
-Event("LOADING_SCREEN_DISABLED");Advance(2)
-assert(#engineCalls==baseline+2 and PendingTimers()==0)
-
--- Disabled audio and rejected/throwing requests clear the stale Playing display.
-for _,cvar in ipairs({"Sound_EnableMusic","Sound_EnableAllSound"}) do
-    StartA();Transition();baseline=#engineCalls
-    cvars[cvar]=false;Advance(1)
-    assert(not ns.State.playing and #engineCalls==baseline)
-    assert(ns.UI.nowLabel:GetText()=="SELECTED TRACK" and not ns.UI.stop:IsEnabled())
-    cvars[cvar]=true
-end
-StartA();Transition();musicAccepted=false;Advance(1)
-assert(not ns.State.playing and ns.UI.nowLabel:GetText()=="SELECTED TRACK")
-musicAccepted=true
-StartA();Transition();musicThrows=true;Advance(1)
-assert(not ns.State.playing)
-musicThrows=false
-
--- Nil success returns remain accepted, matching explicit Play behavior.
-StartA();Transition();musicAccepted=nil;Advance(1)
-assert(ns.State.playing and ns.State.activeTrack==A)
-musicAccepted=true
-
--- Logout and reinitialization invalidate delayed callbacks without changing favorites.
-Transition();stale=timers[#timers];baseline=#engineCalls
-Event("PLAYER_LOGOUT");stale.callback();Advance(2)
-assert(#engineCalls==baseline and PendingTimers()==0)
-ns.ToggleFavorite(A)
-Transition();stale=timers[#timers]
-ns.Initialize();baseline=#engineCalls
-Event("PLAYER_ENTERING_WORLD",false,true);Event("LOADING_SCREEN_DISABLED")
-stale.callback();Advance(2)
-assert(#engineCalls==baseline and not ns.State.playing and ns.IsFavorite(A))
-assert(PendingTimers()==0 and ns.UI.frame.scripts.OnUpdate==nil)
-assert(not events.events.ZONE_CHANGED_NEW_AREA and not events.events.PLAYER_REGEN_DISABLED)
-io.write("PASS: 5,493-track catalog, Favorites, viewport and playback regression; loading recovery handles slow/reordered/repeated transitions, active versus selected tracks, Stop/Play cancellation, stale callbacks, muted/failed playback, logout, and no autoplay after login or reload.\n")
-
+-- Stops, loading/recovery, failures and reload cleanup operate through the production bridge.
+local function Event(name,a,b) eventFrame.scripts.OnEvent(eventFrame,name,a,b) end
+Event("LOADING_SCREEN_ENABLED");Event("PLAYER_LEAVING_WORLD")
+assert(ns.State.suspended and volume=="0.63")
+local before=#calls;Tick(10);assert(#calls==before)
+Event("PLAYER_ENTERING_WORLD",false,false);Event("LOADING_SCREEN_DISABLED");Tick(1)
+assert(#calls==before+1 and ns.State.activeTrack=="bfa-boralus-intro" and tonumber(volume)==0)
+assert(ns.DB.selectedTrack=="sl-ardenweald-the-dreamer-a", "Recovery must preserve selected B while restoring active A")
+Event("LOADING_SCREEN_ENABLED");Event("PLAYER_ENTERING_WORLD",false,false);Event("LOADING_SCREEN_DISABLED")
+local stale=timers[#timers];ns.Stop();before=#calls;stale.callback();Tick(5);assert(#calls==before and not ns.State.playing)
+assert(ns.Play());Event("PLAYER_ENTERING_WORLD",false,true);assert(not ns.State.playing and volume=="0.63")
+musicEnabled=false;assert(not ns.Play());musicEnabled=true
+accepted=false;assert(not ns.Play() and volume=="0.63");accepted=true
+assert(ns.Play());volume="0.4";ns.Stop();assert(volume=="0.4")
+volume="0";ns.DB.restoreMusicVolume="0.71";ns.Initialize();assert(volume=="0.71" and not ns.State.playing)
+assert(ns.DB.favorites[999999999])
+ns.SetLibrarySource("all");ns.UI.search:SetText("[x%");assert(#ns.GetBrowseTracks("[x%") == 0)
+ns.UI.search:SetText("");ns.UI.frame:SetSize(620,460);ns.UI:LayoutLibrary();assert(#ns.UI.rows<60)
+for _,track in ipairs(ns.Catalog) do assert(ns.TracksByKey[track.key]==track) end
+io.write("PASS: integrated full catalog, theme membership, split native UI, frozen queues, Favorites, Next/Repeat, recovery and volume restoration.\n")

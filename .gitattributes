@@ -5,5 +5,7 @@
 *.py text eol=lf
 *.json text eol=lf
 *.csv -text
+*.txt text eol=lf
+*.yml text eol=lf
 *.png binary
 *.docx binary

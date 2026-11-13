@@ -1,0 +1,152 @@
+{
+  "Cities": {
+    "zones": [
+      "Boralus",
+      "Dalaran (Broken Isles)",
+      "Dalaran (Northrend)",
+      "Darnassus",
+      "Dornogal",
+      "Ironforge",
+      "Orgrimmar",
+      "Oribos",
+      "Shattrath City",
+      "Silvermoon City",
+      "Stormwind",
+      "Suramar",
+      "Thunder Bluff",
+      "Undercity",
+      "Undermine",
+      "Valdrakken"
+    ],
+    "tokens": [
+      "dazaralor",
+      "dazar_alor"
+    ]
+  },
+  "Forests": {
+    "zones": [
+      "Ardenweald",
+      "Crystalsong Forest",
+      "Drustvar",
+      "Emerald Dream",
+      "Eversong Woods",
+      "Feralas",
+      "Ghostlands",
+      "Grizzly Hills",
+      "Harandar",
+      "Shared Landscapes: Dark Forest",
+      "Shared Landscapes: Enchanted Forest",
+      "Shared Landscapes: Forest",
+      "Shared Landscapes: Jungle",
+      "Stranglethorn Vale",
+      "Terokkar Forest",
+      "Val'sharah",
+      "The Azure Span"
+    ],
+    "tokens": [
+      "elwynn",
+      "teldrassil",
+      "ashenvale",
+      "felwood",
+      "duskwood",
+      "silverpine",
+      "jadeforest",
+      "jade_forest"
+    ]
+  },
+  "Taverns": {
+    "zones": [
+      "Dwarven Taverns",
+      "Horde Taverns",
+      "Human Taverns",
+      "Night Elf Taverns",
+      "Orcish Taverns",
+      "Pirate Taverns",
+      "Tauren Taverns",
+      "Undead Taverns"
+    ],
+    "tokens": [
+      "tavern",
+      "_inn_"
+    ]
+  },
+  "PvP": {
+    "zones": [
+      "Battlegrounds",
+      "Arathi Basin",
+      "Wintergrasp"
+    ],
+    "tokens": [
+      "pvp",
+      "battleground",
+      "warsong",
+      "alterac",
+      "arathibasin",
+      "eyeofthestorm",
+      "twinpeaks",
+      "kotmogu"
+    ]
+  },
+  "Dungeons": {
+    "zones": [
+      "Azjol-Nerub",
+      "Caverns of Time",
+      "Cinderbrew Meadery",
+      "Karazhan",
+      "Murder Row",
+      "Ruby Life Pools",
+      "Scarlet Monastery",
+      "Scholomance",
+      "Temple of the Jade Serpent",
+      "The Culling of Stratholme",
+      "The Nexus",
+      "The Violet Hold",
+      "Torghast",
+      "Utgarde Keep"
+    ],
+    "tokens": [
+      "algethar",
+      "auchindoun",
+      "blackrookhold",
+      "darkheartthicket",
+      "darkflamecleft",
+      "grim_batol",
+      "grimbatol",
+      "hallsofvalor",
+      "skyreach",
+      "vaultofthewardens",
+      "tazavesh"
+    ]
+  },
+  "Raids": {
+    "zones": [
+      "Ahn'Qiraj",
+      "Amirdrassil",
+      "Black Temple",
+      "Chamber of Aspects",
+      "Dragon Soul",
+      "Firelands",
+      "Icecrown Citadel",
+      "Naxxramas",
+      "Ny'alotha",
+      "Seat of the Pantheon",
+      "Sunwell Plateau",
+      "Tempest Keep",
+      "The Emerald Nightmare",
+      "Tomb of Sargeras",
+      "Trial of the Crusader",
+      "Ulduar"
+    ],
+    "tokens": [
+      "antorus",
+      "blackrockfoundry",
+      "heartoffear",
+      "hellfirecitadel",
+      "highmaul",
+      "mogushan",
+      "nerubar",
+      "nerub_ar",
+      "siegeoforgrimmar"
+    ]
+  }
+}

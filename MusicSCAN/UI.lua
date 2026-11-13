@@ -3,7 +3,7 @@
 local _, ns = ...
 local WHITE = "Interface\\Buttons\\WHITE8X8"
 local GOLD = { 214 / 255, 198 / 255, 164 / 255 }
-local MONK = RAID_CLASS_COLORS.MONK
+local MONK = (RAID_CLASS_COLORS and RAID_CLASS_COLORS.MONK) or {r=0,g=1,b=.596}
 local UI = {}
 
 local function Backdrop(frame, r, g, b, border)
@@ -84,6 +84,7 @@ end
 function UI:LayoutLibrary()
     if not self.content then return end
     self.content:SetWidth(math.max(1, self.scroll:GetWidth()))
+    if self.sidebarContent then self.sidebarContent:SetHeight(#self.sourceRows*27) end
     self:RenderLibrary()
 end
 
@@ -139,9 +140,11 @@ function UI:RenderLibrary()
     if self.rendering then return end
     self.rendering = true
     local query = self.search:GetText()
-    local searching = query:find("%S") ~= nil
+    local searching = query:find("%S") ~= nil or ns.DB.librarySource~="all"
     local groups = ns.GetExpansionGroups(query)
-    local favorites = ns.GetFavoriteTracks(query)
+    local favoriteView = ns.DB.librarySource=="favorites"
+    local favorites = favoriteView and ns.GetFavoriteTracks(query) or {}
+    if favoriteView then groups={} end
     local items, y = {}, 0
     local function Add(item, height)
         item.y, item.height = y, height
@@ -166,6 +169,7 @@ function UI:RenderLibrary()
         end
     end
     if #groups == 0 and #favorites == 0 then y = y + 32 end -- Reserve the no-results label.
+    if favoriteView then
     local favoritesCollapsed
     if searching then favoritesCollapsed = self.searchFavoritesCollapsed
     else favoritesCollapsed = ns.DB.favoritesCollapsed end
@@ -177,6 +181,7 @@ function UI:RenderLibrary()
         else
             for _, track in ipairs(favorites) do Add({kind="track", track=track}, 32) end
         end
+    end
     end
     self.libraryItems = items
     self.empty:SetShown(#groups == 0 and #favorites == 0)
@@ -287,12 +292,13 @@ end
 function UI:RefreshPlayback()
     local playing = ns.State.playing
     local track = playing and ns.GetActiveTrack() or ns.GetSelectedTrack()
-    self.nowLabel:SetText(playing and "NOW PLAYING" or "SELECTED TRACK")
+    self.nowLabel:SetText(playing and (ns.State.suspended and "LOADING - RESTART PENDING" or "NOW PLAYING") or "SELECTED TRACK")
     if playing then self.nowLabel:SetTextColor(MONK.r, MONK.g, MONK.b)
     else self.nowLabel:SetTextColor(0.65, 0.65, 0.65) end
     self.nowTitle:SetText(track and track.title or "Select a track")
-    self.location:SetText(track and (track.zone .. "  |  " .. track.expansion) or "")
-    self.stop:SetEnabled(playing)
+    self.location:SetText(track and (track.zone .. "  |  " .. track.expansion .. (playing and "  |  Master Volume" or "")) or "")
+    self.stop:SetEnabled(playing or ns.DB.restoreMusicVolume~=nil)
+    self.repeatButton.text:SetText(ns.DB.repeatTrack and "Repeat: ON" or "Repeat: OFF")
     self.play:SetEnabled(ns.GetSelectedTrack() ~= nil)
     self:RefreshFavorite()
 end
@@ -305,6 +311,7 @@ function UI:RefreshFavorite()
 end
 
 function UI:Refresh()
+    self:RefreshSources()
     self:RenderLibrary()
     self:RefreshPlayback()
 end
@@ -365,6 +372,48 @@ function UI:BuildMinimap()
     end)
     Minimap:HookScript("OnSizeChanged", function() UI:UpdateMinimapPosition() end)
     self:UpdateMinimapPosition()
+end
+
+function UI:BuildSources(frame)
+    local sidebar=CreateFrame("Frame",nil,frame,"BackdropTemplate")
+    sidebar:SetPoint("TOPLEFT",16,-94);sidebar:SetPoint("BOTTOMLEFT",16,136);sidebar:SetWidth(170)
+    Backdrop(sidebar,.055,.055,.06)
+    local scroll=CreateFrame("ScrollFrame",nil,sidebar,"UIPanelScrollFrameTemplate")
+    scroll:SetPoint("TOPLEFT",4,-5);scroll:SetPoint("BOTTOMRIGHT",-25,5)
+    local content=CreateFrame("Frame",nil,scroll)
+    content:SetSize(140,1);scroll:SetScrollChild(content)
+    self.sidebarContent=content
+    self.sourceRows={}
+    local sources={{id="all",title="All Music"},{id="favorites",title="Favorites"}}
+    for _,name in ipairs(ns.ThemeOrder) do sources[#sources+1]={id=name,title=name} end
+    local expansions={}
+    for name in pairs(ns.Expansions) do expansions[#expansions+1]=name end
+    table.sort(expansions,function(a,b) return ns.ExpansionOrder[a]<ns.ExpansionOrder[b] end)
+    for _,name in ipairs(expansions) do sources[#sources+1]={id="expansion:"..name,title=name} end
+    for index,source in ipairs(sources) do
+        local id=source.id
+        local row=Button(content,source.title,function() ns.SetLibrarySource(id) end)
+        row.sourceID=id;row.title=source.title
+        row:SetSize(140,25);row:SetPoint("TOPLEFT",0,-(index-1)*27)
+        row.text:ClearAllPoints();row.text:SetPoint("LEFT",5,0);row.text:SetPoint("RIGHT",-5,0)
+        row.text:SetFont(STANDARD_TEXT_FONT,10,"");row.text:SetWordWrap(false)
+        row:SetScript("OnEnter",function(self)
+            GameTooltip:SetOwner(self,"ANCHOR_RIGHT");GameTooltip:SetText(self.title)
+            GameTooltip:AddLine("Browse this library. Current playback queue stays unchanged.",1,1,1,true)
+            GameTooltip:Show()
+        end)
+        row:SetScript("OnLeave",function() GameTooltip:Hide() end)
+        self.sourceRows[index]=row
+    end
+    content:SetHeight(#sources*27)
+end
+function UI:RefreshSources()
+    if not self.sourceRows then return end
+    for _,row in ipairs(self.sourceRows) do
+        local selected=ns.DB.librarySource==row.sourceID
+        row:SetBackdropColor(selected and .16 or .055,selected and .145 or .055,selected and .115 or .06,1)
+        row:SetBackdropBorderColor(selected and GOLD[1] or .25,selected and GOLD[2] or .25,selected and GOLD[3] or .25,1)
+    end
 end
 
 -- Native frames only; no external libraries or addon dependencies are required.
@@ -433,19 +482,24 @@ function ns.BuildUI()
     search:SetMaxLetters(100)
     local hint = Label(search, 12, 0.55, 0.55, 0.55)
     hint:SetPoint("LEFT", 8, 0)
-    hint:SetText("Search zones or tracks...")
+    hint:SetText("Search this library: zones, tracks, expansions...")
     search:SetScript("OnTextChanged", function(self)
         UI.searchCollapsed = {}
         UI.searchFavoritesCollapsed = false
         hint:SetShown(self:GetText() == "")
+        if self:GetText():lower():match("^%s*(.-)%s*$")=="favorites" and ns.DB.librarySource~="favorites" then
+            ns.SetLibrarySource("favorites")
+        end
         UI.scroll:SetVerticalScroll(0)
         UI:RenderLibrary()
     end)
     search:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
     search:SetScript("OnEnterPressed", function(self) self:ClearFocus() end)
 
+    -- Sidebar has its own scroller; the track pane keeps bounded row reuse.
+    UI:BuildSources(frame)
     local list = CreateFrame("Frame", nil, frame, "BackdropTemplate")
-    list:SetPoint("TOPLEFT", 16, -94)
+    list:SetPoint("TOPLEFT", 196, -94)
     list:SetPoint("BOTTOMRIGHT", -16, 136)
     Backdrop(list, 0.065, 0.065, 0.07, 0.18)
     local scroll = CreateFrame("ScrollFrame", "MusicSCANLibraryScroll", list, "UIPanelScrollFrameTemplate")
@@ -477,6 +531,19 @@ function ns.BuildUI()
     UI.play:SetPoint("BOTTOMLEFT", 16, 27)
     UI.stop = Button(frame, "Stop", ns.Stop)
     UI.stop:SetPoint("LEFT", UI.play, "RIGHT", 8, 0)
+    UI.next = Button(frame,"Next",ns.Next)
+    UI.next:SetPoint("LEFT",UI.stop,"RIGHT",8,0)
+    UI.repeatButton = Button(frame,"Repeat: OFF",ns.ToggleRepeat)
+    UI.repeatButton:SetWidth(126)
+    UI.repeatButton:SetPoint("LEFT",UI.next,"RIGHT",12,0)
+    UI.repeatButton:SetScript("OnEnter",function(self)
+        GameTooltip:SetOwner(self,"ANCHOR_TOP")
+        GameTooltip:SetText("Repeat the active track")
+        GameTooltip:AddLine("OFF advances through the captured list. Next always advances.",1,1,1,true)
+        GameTooltip:AddLine("Selected music uses Master Volume. Music volume restores on Stop.",1,1,1,true)
+        GameTooltip:Show()
+    end)
+    UI.repeatButton:SetScript("OnLeave",function() GameTooltip:Hide() end)
     local favorite = CreateFrame("Button", "MusicSCANFavoriteButton", frame)
     UI.favorite = favorite
     favorite:SetSize(30, 30)

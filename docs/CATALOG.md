@@ -1,4 +1,4 @@
-# MusicSCAN 0.7.1 BETA catalog
+# MusicSCAN catalog — retained baseline plus 0.8.0 themes
 
 **5,493 individual built-in music FileDataIDs**, expanded from the original 13.
 No audio files, sound-effect folders or voice-recording folders are imported.
@@ -116,3 +116,10 @@ A separate one-shot loading-screen recovery can restart the active request.
 The frozen zone-category lookup and thirteen overrides are included. Refreshing
 upstream lookup data is a separate review step, not a network action performed
 by the addon or the build command. No audio downloading is needed.
+
+## 0.8.0 theme views
+
+Themes.lua references existing keys. tools/theme-rules.json defines reviewed location
+and filename rules. catalog/THEME-AUDIT.csv records assignment reasons. Regenerate via
+python tools/build_themes.py, then rerun tests. Overlapping themes do not duplicate
+audio records. These are not exhaustive official playlists or bulk listening validation.

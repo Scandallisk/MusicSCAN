@@ -1,26 +1,14 @@
 -- Core: initialization, catalog access, playback, preferences and slash commands.
 local addonName, ns = ...
 
-ns.VERSION = "0.7.1 BETA"
+ns.VERSION = "0.8.0 BETA1"
 ns.AUTHOR = "SCAN | Kilobytes Development"
 ns.WEBSITE = "www.kilobytes.dev"
 ns.ICON = "Interface\\Icons\\inv_holiday_brewfestbuff_01"
 ns.State = { playing = false }
-ns.WindowDefaults = { width = 440, height = 480, minWidth = 380, minHeight = 360 }
+ns.WindowDefaults = { width = 760, height = 560, minWidth = 620, minHeight = 460 }
 
 local DEFAULT_ANGLE = 225
-local RECOVERY_DELAY = 1
-local recoveryTimer, recoveryGeneration = nil, 0
-local loadingScreen, worldEntered = false, false
-
--- Generation checks also reject callbacks that were already queued when canceled.
-local function CancelRecovery()
-    recoveryGeneration = recoveryGeneration + 1
-    if recoveryTimer then
-        recoveryTimer:Cancel()
-        recoveryTimer = nil
-    end
-end
 
 local function IsFinite(value)
     return type(value) == "number" and value == value and math.abs(value) < math.huge
@@ -68,9 +56,10 @@ end
 
 function ns.GetExpansionGroups(query)
     query = (query or ""):lower():match("^%s*(.-)%s*$")
-    if ns.GroupQuery == query then return ns.GroupCache end
+    local cacheKey = ns.DB.librarySource .. "|" .. query
+    if ns.GroupQuery == cacheKey then return ns.GroupCache end
     local groups, byName = {}, {}
-    for _, track in ipairs(ns.GetFilteredCatalog(query)) do
+    for _, track in ipairs(ns.GetBrowseTracks(query)) do
         local group = byName[track.expansion]
         if not group then
             group = { name = track.expansion, tracks = {} }
@@ -85,7 +74,7 @@ function ns.GetExpansionGroups(query)
         if ar ~= br then return ar < br end
         return a.name:lower() < b.name:lower()
     end)
-    ns.GroupQuery, ns.GroupCache = query, groups
+    ns.GroupQuery, ns.GroupCache = cacheKey, groups
     return groups
 end
 
@@ -140,88 +129,69 @@ function ns.ToggleFavoritesCategory()
     ns.Notify()
 end
 
--- Both explicit Play and post-loading recovery use the same audio checks.
-local function PlayTrack(track)
-    if not track then return false, "Select a track first." end
-    if not C_CVar.GetCVarBool("Sound_EnableAllSound") then
-        ns.Print("Enable Sound in WoW's Audio settings, then press Play.")
-        return false
+-- Playback lives in Playback.lua; queues snapshot the current ordered view on Play.
+function ns.GetBrowseTracks(query)
+    local source = ns.DB.librarySource
+    if source == "favorites" then return ns.GetFavoriteTracks(query) end
+    local result = {}
+    for _, track in ipairs(ns.GetFilteredCatalog(query)) do
+        if source == "all" or (source:sub(1,10)=="expansion:" and track.expansion==source:sub(11))
+            or (ns.ThemeKeys[source] and ns.ThemeKeys[source][track.key]) then
+            result[#result+1] = track
+        end
     end
-    if not C_CVar.GetCVarBool("Sound_EnableMusic") then
-        ns.Print("Enable Music in WoW's Audio settings, then press Play.")
-        return false
-    end
+    return result
+end
 
-    -- Explicit stop ensures that pressing Play restarts even the same file.
-    -- No global audio settings are changed.
-    StopMusic()
-    ns.State = { playing = false }
-    local accepted, willPlay = pcall(PlayMusic, track.fileDataID)
-    if not accepted or willPlay == false then
-        ns.Print("Unable to play " .. track.title .. " (FileDataID " .. track.fileDataID .. "). Check your Audio settings or try another track.")
-        ns.Notify()
-        return false
+function ns.SetLibrarySource(source)
+    if type(source)~="string" then return false end
+    if source~="all" and source~="favorites" and not ns.ThemeKeys[source]
+        and not (source:sub(1,10)=="expansion:" and ns.Expansions[source:sub(11)]) then return false end
+    ns.DB.librarySource=source
+    ns.GroupQuery,ns.GroupCache=nil,nil
+    if ns.UI then
+        ns.UI.searchCollapsed={}; ns.UI.searchFavoritesCollapsed=false
+        ns.UI.scroll:SetVerticalScroll(0)
     end
-    -- PlayMusic does not return an audio-position handle. This state records
-    -- the accepted request; it cannot detect engine interruptions or silence.
-    ns.State = { playing = true, activeTrack = track.key }
     ns.Notify()
     return true
+end
+
+local function CaptureQueue()
+    local query = ns.UI and ns.UI.search:GetText() or ""
+    local queue = {}
+    if ns.DB.librarySource=="favorites" then
+        queue=ns.GetFavoriteTracks(query)
+    else
+        for _,group in ipairs(ns.GetExpansionGroups(query)) do
+            for _,track in ipairs(group.tracks) do queue[#queue+1]=track end
+        end
+    end
+    local selected=ns.GetSelectedTrack()
+    if not selected then return nil end
+    local index
+    for i,track in ipairs(queue) do if track.key==selected.key then index=i;break end end
+    if not index then queue={selected};index=1 end
+    ns.Engine.Tracks=queue
+    ns.Engine.Selected=index
+    ns.ActiveQueueSource=ns.DB.librarySource
+    return index
 end
 
 function ns.Play()
-    CancelRecovery()
-    worldEntered = false
-    return PlayTrack(ns.GetSelectedTrack())
+    local index=CaptureQueue()
+    return index and ns.Engine.Start(index,"Play") or false
 end
-
+function ns.Next()
+    if not ns.Engine.State.playing then if not CaptureQueue() then return false end end
+    return ns.Engine.Next()
+end
 function ns.Stop()
-    CancelRecovery()
-    worldEntered = false
-    if not ns.State.playing then return false end
-    StopMusic()
-    ns.State = { playing = false }
-    ns.Notify()
+    ns.Engine.Stop()
     return true
 end
-
--- Restore the active request once after a transition. Never poll the audio engine.
-local function QueueRecovery()
-    CancelRecovery()
-    if not worldEntered or loadingScreen or not ns.State.playing then return end
-    local intent = ns.State
-    local track = ns.GetActiveTrack()
-    if not track then return end
-    local generation = recoveryGeneration
-    recoveryTimer = C_Timer.NewTimer(RECOVERY_DELAY, function()
-        if generation ~= recoveryGeneration then return end
-        recoveryTimer = nil
-        if loadingScreen or not worldEntered or ns.State ~= intent or not intent.playing then return end
-        worldEntered = false
-        -- Selection may have changed while loading; keep the track that was playing.
-        -- PlayMusic cannot seek, so restoring starts the file from its beginning.
-        if not PlayTrack(track) then
-            ns.State = { playing = false }
-            ns.Notify()
-        end
-    end)
-end
-
-local function OnWorldTransition(event, isInitialLogin, isReloadingUi)
-    if event == "PLAYER_LEAVING_WORLD" or event == "LOADING_SCREEN_ENABLED" then
-        CancelRecovery()
-        worldEntered = false
-        if event == "LOADING_SCREEN_ENABLED" then loadingScreen = true end
-    elseif event == "PLAYER_ENTERING_WORLD" then
-        CancelRecovery()
-        -- Initial login and reload stay idle, regardless of saved selection.
-        worldEntered = not isInitialLogin and not isReloadingUi
-        if worldEntered then QueueRecovery() end
-    elseif event == "LOADING_SCREEN_DISABLED" then
-        loadingScreen = false
-        -- If world entry arrives later, that event will schedule the same recovery.
-        QueueRecovery()
-    end
+function ns.ToggleRepeat()
+    ns.Engine.SetRepeat(not ns.DB.repeatTrack)
 end
 
 -- Clamp saved geometry to the current UI dimensions before restoring it.
@@ -293,10 +263,15 @@ function ns.HandleCommand(message)
     local command = (message or ""):lower():match("^%s*(.-)%s*$")
     if command == "" then ns.ToggleWindow()
     elseif command == "play" then ns.Play()
-    elseif command == "stop" then ns.Stop()
+    elseif command == "stop" or command == "restore" then ns.Stop()
+    elseif command == "next" then ns.Next()
+    elseif command == "repeat" then ns.ToggleRepeat()
+    elseif command == "status" then
+        ns.Engine.Status()
+        ns.Print("Queue: " .. (ns.ActiveQueueSource or "none") .. " | " .. #ns.Engine.Tracks .. " tracks")
     elseif command == "reset" then ns.ResetPosition()
     else
-        ns.Print("/musicscan or /msc - open/close; play - restart selection; stop - restore zone music; reset - reset window layout and minimap position.")
+        ns.Print("/musicscan or /msc - open/close; play - restart selection; stop/restore - restore zone music; next; repeat; status; reset - reset window/minimap.")
     end
 end
 
@@ -308,8 +283,6 @@ local VALID_POINTS = {
 
 -- Validate saved preferences without discarding existing selections or favorites.
 function ns.Initialize()
-    CancelRecovery()
-    loadingScreen, worldEntered = false, false
     ns.TracksByKey, ns.TracksByFileID, ns.SortedCatalog, ns.Expansions, ns.SearchTextByKey = {}, {}, {}, {}, {}
     ns.GroupQuery, ns.GroupCache = nil, nil
     ns.FavoriteQuery, ns.FavoriteCache = nil, nil
@@ -331,6 +304,12 @@ function ns.Initialize()
     if type(MusicSCANDB) ~= "table" then MusicSCANDB = {} end
     ns.DB = MusicSCANDB
     ns.DB.schemaVersion = 1
+    ns.DB.repeatTrack = ns.DB.repeatTrack == true
+    local source = ns.DB.librarySource
+    if type(source)~="string" or (source~="all" and source~="favorites" and not ns.ThemeKeys[source]
+        and not (source:sub(1,10)=="expansion:" and ns.Expansions[source:sub(11)])) then
+        ns.DB.librarySource="all"
+    end
     -- Retire the old nonfunctional loop preference without changing WoW audio settings.
     ns.DB.loopMusic = nil
     if type(ns.DB.favorites) ~= "table" then ns.DB.favorites = {} end
@@ -375,6 +354,7 @@ function ns.Initialize()
     ns.State = { playing = false } -- Remember selection, never autoplay at login/reload.
     SLASH_MUSICSCAN1, SLASH_MUSICSCAN2 = "/musicscan", "/msc"
     SlashCmdList.MUSICSCAN = ns.HandleCommand
+    ns.InitializePlayback()
     ns.BuildUI()
     ns.Print("v" .. ns.VERSION .. " loaded. Click the minimap button or type /musicscan.")
 end
@@ -382,6 +362,7 @@ end
 local events = CreateFrame("Frame")
 events:RegisterEvent("ADDON_LOADED")
 events:RegisterEvent("PLAYER_LOGOUT")
+events:RegisterEvent("SOUNDKIT_FINISHED")
 events:RegisterEvent("PLAYER_LEAVING_WORLD")
 events:RegisterEvent("PLAYER_ENTERING_WORLD")
 events:RegisterEvent("LOADING_SCREEN_ENABLED")
@@ -391,13 +372,12 @@ events:SetScript("OnEvent", function(self, event, arg1, arg2)
         self:UnregisterEvent("ADDON_LOADED")
         ns.Initialize()
     elseif event == "PLAYER_LOGOUT" then
-        CancelRecovery()
-        worldEntered = false
+        if ns.Engine then ns.Engine.OnEvent("PLAYER_LOGOUT") end
         if ns.UI then
             ns.UI.frame:StopMovingOrSizing()
             ns.SaveWindowPosition(ns.UI.frame)
         end
     elseif ns.DB then
-        OnWorldTransition(event, arg1, arg2)
+        ns.Engine.OnEvent(event, arg1, arg2)
     end
 end)

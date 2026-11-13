@@ -12,7 +12,7 @@ import zipfile
 ROOT = Path(__file__).resolve().parents[1]
 ADDON = ROOT / "MusicSCAN"
 FILES = (
-    "MusicSCAN.toc", "Database.lua", "MusicSCAN.lua", "UI.lua",
+    "MusicSCAN.toc", "Database.lua", "Themes.lua", "MusicSCAN.lua", "Playback.lua", "UI.lua",
     "README.md", "CHANGELOG.md", "LICENSE.txt", "SOURCES.md",
 )
 
@@ -26,7 +26,7 @@ def main():
         raise SystemExit("TOC and core versions disagree.")
     loaded = [line.strip() for line in toc.splitlines()
               if line.strip() and not line.startswith("##")]
-    if loaded != ["Database.lua", "MusicSCAN.lua", "UI.lua"]:
+    if loaded != ["Database.lua", "Themes.lua", "MusicSCAN.lua", "Playback.lua", "UI.lua"]:
         raise SystemExit("Unexpected TOC load order; review before packaging.")
     actual = {path.name for path in ADDON.iterdir()}
     if actual != set(FILES):
