@@ -2,7 +2,7 @@
 ## Title: MusicSCAN
 ## Notes: Retail BETA: themed libraries, automatic Next and Repeat Track.
 ## Author: SCAN | Kilobytes Development
-## Version: 0.8.0 BETA1
+## Version: 0.8.0 BETA1 HOTFIX1
 ## SavedVariables: MusicSCANDB
 ## IconTexture: Interface\Icons\inv_holiday_brewfestbuff_01
 ## X-Website: https://kilobytes.dev/musicscan/

@@ -1,0 +1,6 @@
+HOTFIX 1, 2026-11-14: BackgroundAuto2 promotion.
+Owner confirmed Forever tab-out fix and Stop restores prior background audio setting.
+Quiet debug mode tested with mocks, not separately confirmed natively by owner.
+Retail shares tested implementation; no separate native Retail tab-out confirmation.
+Lua5.1/5.4 suites and applicable catalog/theme/package checks run before publishing.
+Underlying catalog and themes unchanged; all155Forever aliases retained.

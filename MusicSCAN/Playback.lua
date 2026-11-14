@@ -11,6 +11,24 @@ local generation = 0
 local loadingScreen, worldEntered, transitioning = false, false, false
 local POLL_INTERVAL, START_TIMEOUT, RECOVERY_DELAY = 0.2, 30, 1
 local overrideOwned = false
+local lastAutomaticStart
+local BACKGROUND_MESSAGE = "Enable background audio again by pressing Play. Automatic playback stopped because the setting changed."
+
+local function BackgroundAudioEnabled()
+    if not C_CVar or type(C_CVar.GetCVarBool) ~= "function" then return false end
+    local ok, enabled = pcall(C_CVar.GetCVarBool, "Sound_EnableSoundWhenGameIsInBG")
+    return ok and enabled == true
+end
+
+-- This client offers no proven usable focus signal. Refuse ambiguous muted
+-- handles instead of inferring a track ending or changing a player preference.
+local function CompletionBlocked()
+    if not BackgroundAudioEnabled() then
+        ns.Stop(BACKGROUND_MESSAGE)
+        return true
+    end
+    return false
+end
 
 local function ReleaseOverride()
     local previous = ns.DB and ns.DB.restoreMusicVolume
@@ -24,6 +42,18 @@ local function ReleaseOverride()
             if not restored or not verified or tonumber(value) ~= tonumber(previous) then return false end
         end
         ns.DB.restoreMusicVolume = nil
+    end
+    local background = ns.DB and ns.DB.restoreBackgroundAudio
+    if background ~= nil then
+        local readOK, current = pcall(C_CVar.GetCVarBool, "Sound_EnableSoundWhenGameIsInBG")
+        if not readOK or type(current) ~= "boolean" then return false end
+        -- Respect an explicit player change away from our temporary ON value.
+        if current then
+            local restored = pcall(C_CVar.SetCVar, "Sound_EnableSoundWhenGameIsInBG", background)
+            local checked, value = pcall(C_CVar.GetCVarBool, "Sound_EnableSoundWhenGameIsInBG")
+            if not restored or not checked or value ~= (background == "1") then return false end
+        end
+        ns.DB.restoreBackgroundAudio = nil
     end
     overrideOwned = false
     return true
@@ -41,11 +71,11 @@ function ns.Notify()
     lastHandle=state.handle
     host.Notify()
 end
-function ns.Log(message)
+function ns.Log(message, force)
     ns.LastMessage=message
     ns.History[#ns.History+1]=message
     if #ns.History>40 then table.remove(ns.History,1) end
-    host.Print(message)
+    host.Print(message, force)
     ns.Notify()
 end
 
@@ -66,12 +96,13 @@ local function RetireSound()
 end
 
 function ns.Stop(reason)
+    lastAutomaticStart = nil
     Invalidate()
     local previous = ns.State
     ns.State = {playing=false}
     if previous.handle ~= nil then pcall(StopSound, previous.handle) end
     local restored = ReleaseOverride()
-    if not restored then ns.Log("Music volume restoration is pending. Use /msc restore or restore it in Audio settings.") end
+    if not restored then ns.Log("Audio settings restoration is pending. Use /msc restore or restore it in Audio settings.") end
     if reason then ns.Log(reason) else ns.Log("Stopped. Automatic Next is canceled.") end
 end
 
@@ -104,6 +135,13 @@ function ns.Start(index, reason)
         ns.Log("Wait for the loading transition to finish, then press Play.")
         return false
     end
+    if reason == "Automatic Next" or reason == "Repeat" then
+        if lastAutomaticStart and GetTime() - lastAutomaticStart < 2 then
+            ns.Stop("Repeated rapid audio interruptions. Playback stopped; press Play when audio is available.")
+            return false
+        end
+        lastAutomaticStart = GetTime()
+    else lastAutomaticStart = nil end
     local track = ns.Tracks[index]
     -- The Music-channel file path mixed with zone music on the test client.
     -- Temporarily mute ONLY Music volume, and route our handled file through Master.
@@ -115,6 +153,20 @@ function ns.Start(index, reason)
         if not readOK or not volume or volume < 0 or volume > 1 then
             ns.Log("Could not read Music volume safely; test not started.")
             return false
+        end
+        local bgOK, background = pcall(C_CVar.GetCVarBool, "Sound_EnableSoundWhenGameIsInBG")
+        if not bgOK or type(background) ~= "boolean" then
+            ns.Log("Could not read background audio safely; playback not started.")
+            return false
+        end
+        ns.DB.restoreBackgroundAudio = background and "1" or "0"
+        if not background then
+            local enabled = pcall(C_CVar.SetCVar, "Sound_EnableSoundWhenGameIsInBG", 1)
+            if not enabled or not BackgroundAudioEnabled() then
+                ReleaseOverride()
+                ns.Log("Could not enable temporary background audio; playback not started.")
+                return false
+            end
         end
         ns.DB.restoreMusicVolume = previous
         local muteOK = pcall(C_CVar.SetCVar, "Sound_MusicVolume", 0)
@@ -137,6 +189,7 @@ function ns.Start(index, reason)
     local token = generation
     ticker = C_Timer.NewTicker(POLL_INTERVAL, function()
         if generation ~= token or ns.State ~= state or not state.playing or state.handle ~= handle then return end
+        if CompletionBlocked() then return end
         local queryOK, isPlaying = pcall(C_Sound.IsPlaying, handle)
         if not queryOK or type(isPlaying) ~= "boolean" then
             ns.Stop("Sound-handle status failed; playback stopped safely.")
@@ -173,6 +226,7 @@ end
 function ns.Finish(handle, source)
     local state = ns.State
     if not state.playing or state.suspended or state.handle ~= handle or transitioning then return end
+    if CompletionBlocked(state) or not state.observedPlaying then return end
     -- IsPlaying does not reveal WHY a handle stopped. In-game listening must confirm
     -- natural endings rather than interruption/voice stealing. This is a POC.
     local nextIndex = ns.DB.repeatTrack and state.index or (state.index % #ns.Tracks + 1)
@@ -237,7 +291,8 @@ function ns.Status()
     ns.Log("Status: " .. (state.suspended and "loading" or state.playing and "active" or "idle")
         .. "; selected=" .. ns.Selected .. "; active=" .. tostring(state.index)
         .. "; handle=" .. tostring(state.handle) .. "; observed=" .. tostring(state.observedPlaying)
-        .. "; repeat=" .. tostring(ns.DB.repeatTrack) .. "; completions=" .. ns.Completed)
+        .. "; backgroundAudio=" .. tostring(BackgroundAudioEnabled())
+        .. "; repeat=" .. tostring(ns.DB.repeatTrack) .. "; completions=" .. ns.Completed, true)
 end
 
 function host.InitializePlayback()
@@ -245,10 +300,15 @@ function host.InitializePlayback()
     ns.DB=host.DB
     ns.State={playing=false}
     ns.Tracks={}
+    if ns.DB.restoreBackgroundAudio ~= nil and ns.DB.restoreBackgroundAudio ~= "0"
+        and ns.DB.restoreBackgroundAudio ~= "1" then ns.DB.restoreBackgroundAudio=nil end
+    if ns.DB.restoreBackgroundAudio ~= nil then
+        if not ReleaseOverride() then ns.Log("Audio settings restoration is pending. Use /msc restore.") end
+    end
     if ns.DB.restoreMusicVolume~=nil then
         local value=tonumber(ns.DB.restoreMusicVolume)
         if value and value>=0 and value<=1 then
-            if not ReleaseOverride() then ns.Log("Music volume restoration is pending. Use /msc restore.") end
+            if not ReleaseOverride() then ns.Log("Audio settings restoration is pending. Use /msc restore.") end
         else ns.DB.restoreMusicVolume=nil end
     end
 end

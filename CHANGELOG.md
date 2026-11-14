@@ -1,3 +1,10 @@
+# 0.8.0 BETA1 HOTFIX1 — HOTFIX (2026-11-14)
+
+Fix tab-out false Next/Repeat by temporarily enabling background audio,
+restoring the prior preference on Stop and cleanup. No manual menu prerequisite.
+Move chat diagnostics to debug mode, OFF by default; /msc debug on/off.
+Retain catalogs/Favorites, add rapid-interruption cutoff and regression checks.
+
 # MusicSCAN Retail
 
 ## 0.8.0 BETA1 — Retail release

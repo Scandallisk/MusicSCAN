@@ -1,3 +1,4 @@
+table.unpack = table.unpack or unpack
 local clock, frames, engineCalls, messages = 100, {}, {}, {}
 local cvars = { Sound_EnableAllSound = true, Sound_EnableMusic = true }
 local musicAccepted, musicThrows = true, false
@@ -142,17 +143,19 @@ PlayMusic = function(id) engineCalls[#engineCalls+1] = {"play",id}; if musicThro
 StopMusic = function() engineCalls[#engineCalls+1] = {"stop"} end
 print = function(s) messages[#messages+1] = s end
 
+function M:HasScript(name) return name=="OnWindowFocusChanged" end
 local now, timers, tickers, sounds, calls = 0, {}, {}, {}, {}
 local eventFrame
 local sequence, accepted, returnHandle, queryError = 0, true, true, false
 local soundEnabled, musicEnabled = true, true
+local backgroundEnabled = true
 local volume, failSet = "0.63", false
 local messages = {}
 GetTime=function() return now end
 print=function(text) messages[#messages+1]=text end
-C_CVar={GetCVarBool=function(name) return name=="Sound_EnableAllSound" and soundEnabled or name=="Sound_EnableMusic" and musicEnabled end}
+C_CVar={GetCVarBool=function(name) if name=="Sound_EnableSoundWhenGameIsInBG" then return backgroundEnabled end; return name=="Sound_EnableAllSound" and soundEnabled or name=="Sound_EnableMusic" and musicEnabled end}
 C_CVar.GetCVar=function(name) assert(name=="Sound_MusicVolume");return volume end
-C_CVar.SetCVar=function(name,value) assert(name=="Sound_MusicVolume");if failSet then error("set failed") end;volume=tostring(value) end
+C_CVar.SetCVar=function(name,value) if failSet then error("set failed") end;if name=="Sound_EnableSoundWhenGameIsInBG" then backgroundEnabled=tostring(value)=="1";return end;assert(name=="Sound_MusicVolume");volume=tostring(value) end
 C_Timer={}
 local function Timer(callback)
     local timer={callback=callback,canceled=false}
@@ -202,7 +205,7 @@ end
 for _,frame in ipairs(frames) do if frame.events.ADDON_LOADED then eventFrame=frame;break end end
 assert(eventFrame)
 eventFrame.scripts.OnEvent(eventFrame,"ADDON_LOADED","MusicSCAN")
-assert(ns.VERSION=="0.8.0 BETA1" and #ns.Catalog==5493 and not ns.State.playing)
+assert(ns.VERSION=="0.8.0 BETA1 HOTFIX1" and #ns.Catalog==5493 and not ns.State.playing)
 assert(ns.DB.selectedTrack=="bfa-boralus-intro" and ns.DB.window.width==640 and ns.DB.minimap.angle==42)
 assert(ns.DB.favorites[999999999] and #ns.GetFavoriteTracks("")==2)
 assert(ns.UI.sourceRows and #ns.UI.sourceRows==20)
@@ -217,7 +220,7 @@ assert(ns.Play() and ns.State.activeTrack=="bfa-boralus-intro" and tonumber(volu
 local queue=ns.Engine.Tracks;local index=ns.Engine.State.index;assert(#queue==174)
 ns.SetLibrarySource("Forests");ns.SelectTrack("sl-ardenweald-the-dreamer-a")
 assert(ns.Engine.Tracks==queue and ns.State.activeTrack=="bfa-boralus-intro")
-Tick();local h=ns.Engine.State.handle;ns.ToggleRepeat();sounds[h]=false;Tick()
+Tick();local h=ns.Engine.State.handle;ns.ToggleRepeat();sounds[h]=false;Tick(3)
 assert(ns.State.activeTrack=="bfa-boralus-intro" and ns.Engine.Tracks==queue)
 assert(ns.DB.selectedTrack=="sl-ardenweald-the-dreamer-a", "Repeat must preserve an independently highlighted row")
 ns.Next();assert(ns.State.activeTrack==queue[index%#queue+1].key)
@@ -228,7 +231,7 @@ ns.SetLibrarySource("favorites");ns.SelectTrack("bfa-boralus-intro");ns.ToggleRe
 assert(ns.Play() and #ns.Engine.Tracks==2)
 queue=ns.Engine.Tracks
 ns.ToggleFavorite("sl-ardenweald-the-dreamer-a");assert(#queue==2 and #ns.GetFavoriteTracks("")==1)
-Tick();h=ns.Engine.State.handle;sounds[h]=false;Tick()
+Tick();h=ns.Engine.State.handle;sounds[h]=false;Tick(3)
 assert(ns.State.activeTrack=="sl-ardenweald-the-dreamer-a")
 ns.Next();assert(ns.State.activeTrack=="bfa-boralus-intro")
 ns.SelectTrack("sl-ardenweald-the-dreamer-a")
@@ -253,3 +256,63 @@ ns.SetLibrarySource("all");ns.UI.search:SetText("[x%");assert(#ns.GetBrowseTrack
 ns.UI.search:SetText("");ns.UI.frame:SetSize(620,460);ns.UI:LayoutLibrary();assert(#ns.UI.rows<60)
 for _,track in ipairs(ns.Catalog) do assert(ns.TracksByKey[track.key]==track) end
 io.write("PASS: integrated full catalog, theme membership, split native UI, frozen queues, Favorites, Next/Repeat, recovery and volume restoration.\n")
+
+
+
+-- Starting with the preference OFF needs no manual menu changes.
+ns.Stop();ns.UI.search:SetText("");ns.SetLibrarySource("all")
+backgroundEnabled=false
+local oldVolume=volume
+assert(ns.Play() and backgroundEnabled==true and ns.DB.restoreBackgroundAudio=="0")
+Tick(3);local handle=ns.Engine.State.handle;sounds[handle]=false;Tick(3)
+assert(ns.State.playing and backgroundEnabled and ns.DB.restoreBackgroundAudio=="0")
+ns.Stop();assert(not backgroundEnabled and volume==oldVolume and ns.DB.restoreBackgroundAudio==nil)
+-- An already-enabled preference is preserved.
+backgroundEnabled=true;assert(ns.Play());ns.Stop();assert(backgroundEnabled)
+-- Failed playback rolls both settings back.
+backgroundEnabled=false;accepted=false;assert(not ns.Play());accepted=true
+assert(not backgroundEnabled and volume==oldVolume and ns.DB.restoreBackgroundAudio==nil)
+-- Failure to enable leaves no sound request or false completion.
+failSet=true;local count=#calls;assert(not ns.Play() and #calls==count)
+failSet=false;ns.Stop();assert(not backgroundEnabled)
+-- Pending restoration survives a failed SetCVar and /msc restore retries it.
+assert(ns.Play());failSet=true;ns.Stop()
+assert(ns.DB.restoreBackgroundAudio=="0")
+failSet=false;ns.HandleCommand("restore")
+assert(not backgroundEnabled and ns.DB.restoreBackgroundAudio==nil and volume==oldVolume)
+-- Reload recovery restores even a background-only saved marker.
+backgroundEnabled=true;ns.DB.restoreBackgroundAudio="0";ns.Initialize()
+assert(not backgroundEnabled and ns.DB.restoreBackgroundAudio==nil and not ns.State.playing)
+-- Loading temporarily releases settings; recovery reacquires; logout restores.
+assert(ns.Play());Event("LOADING_SCREEN_ENABLED");assert(not backgroundEnabled)
+Event("PLAYER_ENTERING_WORLD",false,false);Event("LOADING_SCREEN_DISABLED");Tick(1)
+assert(backgroundEnabled and ns.State.playing)
+Event("PLAYER_LOGOUT");assert(not backgroundEnabled and volume==oldVolume)
+-- Explicitly turning background audio OFF while active is respected, not fought.
+assert(ns.Play());backgroundEnabled=false;Tick(.2)
+assert(not ns.State.playing and not backgroundEnabled and volume==oldVolume)
+io.write("PASS: automatic background audio ownership, queue continuity, failures, reload, loading/logout and player changes.\n")
+
+-- Debug logging is opt-in; event/error diagnostics remain internally accessible.
+ns.Stop();ns.DB.debugMode=nil;ns.Initialize()
+assert(ns.DB.debugMode==false)
+local quietCount=#messages
+assert(ns.Play());Tick(3)
+local handle=ns.Engine.State.handle;sounds[handle]=false;Tick(3)
+ns.ToggleRepeat();ns.Next()
+Event("LOADING_SCREEN_ENABLED");Event("PLAYER_ENTERING_WORLD",false,false)
+Event("LOADING_SCREEN_DISABLED");Tick(1);ns.Stop()
+assert(#messages==quietCount and ns.Engine.LastMessage)
+accepted=false;assert(not ns.Play());accepted=true
+assert(#messages==quietCount)
+ns.HandleCommand("status");assert(#messages>quietCount)
+quietCount=#messages;ns.HandleCommand("debug on")
+assert(ns.DB.debugMode==true and #messages==quietCount+1)
+assert(ns.Play());assert(#messages>quietCount+1);ns.Stop()
+ns.Initialize();assert(ns.DB.debugMode==true)
+ns.HandleCommand("debug off");quietCount=#messages
+assert(ns.DB.debugMode==false);ns.Initialize()
+assert(#messages==quietCount and ns.DB.debugMode==false)
+assert(ns.Play());ns.Stop();assert(#messages==quietCount)
+ns.HandleCommand("help");assert(#messages>quietCount)
+io.write("PASS: quiet default, silent events/errors, opt-in persistent debug and explicit status/help.\n")

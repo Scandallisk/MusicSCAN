@@ -1,68 +1,85 @@
-# MusicSCAN Retail — 0.8.0 BETA1
+# MusicSCAN Retail 0.8.0 BETA1 — HOTFIX 1
 
-Retail BETA release for 12.1.5.70783, interface 120105.
-Forever is a separate product/build and is not changed by this package.
+**Tab out without the track skipping. Keep chat quiet by default.**
 
-## New player
+Version **0.8.0 BETA1 HOTFIX1** · Target **Retail 12.1.5.70783 / interface 120105**
 
-Left: All Music, Favorites, Cities, Forests, Taverns, PvP, Dungeons, Raids and expansions.
-Right: tracks from the chosen library, with search and chronological expansion/zone groups.
-The sidebar and track pane scroll independently. Minimum window size is 620 x 460;
-default is 760 x 560. Existing valid larger geometry is retained. /msc reset uses the new default.
+## Fixed
 
-Play starts the highlighted track and captures the current displayed list, including its
-search filter, as a fixed queue. Category folds only affect display, not membership.
-If a previously selected track is outside the current view, Play uses that track alone.
-Changing library, search, selection, folds or Favorites during playback does not alter the
-captured queue. Press Play again to start the selected track with the new queue.
+- Background audio suppression could look like a completed track and cause false
+  automatic Next or Repeat requests when tabbing out. Play now temporarily enables
+  **Sound in Background** automatically; no menu change is required to use MusicSCAN.
+- The previous background-audio preference is retained across the queue and restored
+  on Stop, failure, loading suspension and logout/reload. Loading recovery reacquires it.
+- Routine playback, completion, loading, initialization and diagnostic/error chat logs
+  are now behind **debug mode, OFF by default**. Internal diagnostic history stays bounded.
+- A rapid-restart safety cutoff stops repeated interruptions instead of flooding chat
+  or endlessly restarting tracks. Two automatic starts within two seconds stop safely;
+  this can also stop unusually short consecutive tracks. No guessed song durations.
 
-Next immediately advances in the active queue and wraps to its first track at the end.
-Repeat ON repeats the active track on completion. OFF advances. Next always advances.
-Favorites always target the highlighted selection, independently of the active track.
-Closing the window preserves playback. Login and /reload stay idle.
+## Audio settings and debug controls
 
-## Audio behavior — important
+Selected music continues to follow **Master Volume**. MusicSCAN temporarily sets
+**Music Volume** to zero to suppress normal zone music, and restores its previous
+value on Stop. Enabling background audio also allows other enabled game sounds
+while tabbed out. Explicit Music-slider changes are respected on Stop. Turning
+Sound in Background OFF during playback stops the queue and leaves that preference OFF.
 
-This build integrates the user-confirmed POC3 approach: tracks play on the MASTER channel.
-MASTER VOLUME controls track loudness. While active, only WoW Music volume is temporarily
-set to zero to suppress normal zone music; its exact old value is restored on Stop,
-failure, logout/reload and when playback suspends for loading. Recovery reacquires the mute.
-The original volume is retained between queue items. A saved restoration marker supports
-reload cleanup; /msc restore stops the player and retries restoration. Manual Music-volume
-changes made during playback are respected on Stop. Raising Music volume while playing
-will make normal zone music audible again. Other audio sliders are not changed.
+Use **/msc restore** to stop and retry pending audio-setting restoration. Saved
+restoration markers support reload cleanup. If a hard crash prevents cleanup,
+check both Music Volume and Sound in Background manually in WoW Audio settings.
 
-No guessed song durations are used. A 0.2-second watcher is active only during playback
-and detects the track handle changing from playing to stopped. This cannot distinguish
-every interruption/voice-stealing event from a natural ending. Loading events are gated
-to suspend rather than advance, then restart the active track after the transition.
-Failed starts stop the queue; they do not cause endless retry/skipping of unavailable files.
+- **/msc debug on** — enable chat diagnostic logs.
+- **/msc debug off** — disable them (default).
+- **/msc debug** — report the current logging setting.
+- **/msc status** and **/msc help** — display requested information even with debug OFF.
 
-The prior two-track POC3 was confirmed in-game for zone suppression, restoration, automatic
-Next, Next/wrap and Repeat. The owner approved the integrated local build. Full-library listening and all travel/reload
-edge cases have not been independently verified.
+The debug preference persists across reloads. Errors are also quiet while debug is
+OFF; use status or temporarily enable debug when reporting a playback problem.
 
-## Test this local build
+## Install / upgrade
 
-1. Stop any existing MusicSCAN or /msctest playback, then fully exit/restart Retail.
-   The standalone playback test's TOC is disabled by this install to prevent competition.
-2. Open /msc. Confirm 0.8.0 BETA1 in the footer; use /msc reset if a larger layout is wanted.
-3. In Cities, search Boralus, select Introduction and Play. Confirm no zone-music overlap.
-4. For a short two-track queue, favorite Boralus Introduction and The Dreamer Variation A.
-   Open Favorites, clear search and Play Boralus. Wait for automatic Next; test Next and Repeat.
-5. While playing, change sources/search and highlight another track: audio and queue stay intact.
-   Press Play to deliberately adopt that view. /msc status reports the captured source/count.
-6. Stop: previous Music volume and normal zone music return. Test this before further checks.
-7. Hearth/portal with active A and highlighted B: active A should restart after loading.
-   Stop during loading/recovery must prevent it. /reload must leave playback idle and restore Music.
-8. Check window movement/resizing, both scrollers, minimap, search and saved Favorites after reload.
+1. Stop MusicSCAN and fully exit the appropriate Warcraft client. Back up the addon.
+2. Download **MusicSCAN-0.8.0-BETA1-HOTFIX1.zip**, the installable asset from
+   [this GitHub release](https://github.com/Scandallisk/MusicSCAN/releases/tag/v0.8.0-beta.1-hotfix.1)
+   or the corresponding CurseForge beta once approved. Do not use GitHub's source archive.
+3. Replace **MusicSCAN/** under the client's **Interface/AddOns/** so MusicSCAN.toc
+   is directly inside it. Keep the folder name and preserve WTF/SavedVariables.
+4. Restart the client, open **/msc** and press Play. No background-audio menu setup
+   is required. Use **/msc reset** if you want the 760x560 default layout (minimum620x460).
 
-Commands: /msc or /musicscan; play, stop, next, repeat, status, restore, reset and help.
-Release notes: https://github.com/Scandallisk/MusicSCAN/releases/tag/v0.8.0-beta.1
-CurseForge: https://www.curseforge.com/wow/addons/musicscan
+This package is for **Retail**; use the separate package for the other edition.
+The footer version-label cleanup is reserved for a future major release.
 
-Preserve WTF/SavedVariables when updating or rolling back. Stop first, then exit Retail
-before restoring the backed-up addon folder. If a hard crash prevents restoration, adjust
-Music Volume manually in WoW Audio settings; recovery cannot be guaranteed after all crashes.
+## Existing 0.8 features retained
 
-SCAN | Kilobytes Development. All Rights Reserved. See LICENSE.txt.
+The split-screen library, six themed views (Cities, Forests, Taverns, PvP, Dungeons
+and Raids), Favorites, Next and Repeat remain. All **5493 catalog entries** are
+unchanged. Play captures the current ordered library/search queue; browsing and
+Favorite edits leave it unchanged. Next always advances and wraps, even with Repeat
+ON. Repeat ON repeats the active track; OFF advances. A selection outside the view
+plays alone. Loading recovery restarts the active track; login/reload never autoplay.
+Closing the window keeps playback running. No bundled audio, downloads or addon dependencies.
+
+## Validation and limits
+
+The owner confirmed the automatic-background-audio local build resolved the reported
+tab-out behavior in Forever, and confirmed Stop restores the prior Sound in Background
+setting. The same implementation is included in Retail; this is not a separate native
+Retail tab-out confirmation. Quiet-mode changes passed mocked tests but have not been
+separately reported tested in-game by the owner.
+
+Lua 5.1/5.4 checks cover background setting ownership, queue continuity, restoration,
+failed enable/start/restore, saved-marker reload cleanup, loading/logout, explicit
+player changes, quiet defaults and persistent debug mode. Existing catalog, Favorites,
+queue and transition checks pass. These are not exhaustive listening or travel tests.
+Other sound interruptions can still resemble completion. Filename/zone associations
+and additional Forever candidates retain their existing provisional status.
+
+[Report issues](https://github.com/Scandallisk/MusicSCAN/issues) with track title,
+FileDataID, client build, exact error and steps; include debug/status output when
+appropriate. Avoid account details or full SavedVariables files.
+
+SCAN | Kilobytes Development · https://kilobytes.dev/musicscan/
+All Rights Reserved; personal installation/local modification per LICENSE.txt.
+Blizzard audio and third-party metadata retain their rights.

@@ -1,7 +1,7 @@
 -- Core: initialization, catalog access, playback, preferences and slash commands.
 local addonName, ns = ...
 
-ns.VERSION = "0.8.0 BETA1"
+ns.VERSION = "0.8.0 BETA1 HOTFIX1"
 ns.AUTHOR = "SCAN | Kilobytes Development"
 ns.WEBSITE = "www.kilobytes.dev"
 ns.ICON = "Interface\\Icons\\inv_holiday_brewfestbuff_01"
@@ -14,7 +14,8 @@ local function IsFinite(value)
     return type(value) == "number" and value == value and math.abs(value) < math.huge
 end
 
-function ns.Print(message)
+function ns.Print(message, force)
+    if not force and not (ns.DB and ns.DB.debugMode) then return end
     print("|cffd6c6a4MusicSCAN|r: " .. message)
 end
 
@@ -262,16 +263,24 @@ end
 function ns.HandleCommand(message)
     local command = (message or ""):lower():match("^%s*(.-)%s*$")
     if command == "" then ns.ToggleWindow()
+    elseif command == "debug on" then
+        ns.DB.debugMode = true
+        ns.Print("Debug logging ON.", true)
+    elseif command == "debug off" then
+        ns.DB.debugMode = false
+        ns.Print("Debug logging OFF.", true)
+    elseif command == "debug" or command == "debug status" then
+        ns.Print("Debug logging " .. (ns.DB.debugMode and "ON" or "OFF") .. ". Use /msc debug on or /msc debug off.", true)
     elseif command == "play" then ns.Play()
     elseif command == "stop" or command == "restore" then ns.Stop()
     elseif command == "next" then ns.Next()
     elseif command == "repeat" then ns.ToggleRepeat()
     elseif command == "status" then
         ns.Engine.Status()
-        ns.Print("Queue: " .. (ns.ActiveQueueSource or "none") .. " | " .. #ns.Engine.Tracks .. " tracks")
+        ns.Print("Queue: " .. (ns.ActiveQueueSource or "none") .. " | " .. #ns.Engine.Tracks .. " tracks", true)
     elseif command == "reset" then ns.ResetPosition()
     else
-        ns.Print("/musicscan or /msc - open/close; play - restart selection; stop/restore - restore zone music; next; repeat; status; reset - reset window/minimap.")
+        ns.Print("/musicscan or /msc - open/close; play - restart selection; stop/restore - restore zone music; next; repeat; status; reset - reset window/minimap; debug on/off - logging.", true)
     end
 end
 
@@ -304,6 +313,7 @@ function ns.Initialize()
     if type(MusicSCANDB) ~= "table" then MusicSCANDB = {} end
     ns.DB = MusicSCANDB
     ns.DB.schemaVersion = 1
+    ns.DB.debugMode = ns.DB.debugMode == true
     ns.DB.repeatTrack = ns.DB.repeatTrack == true
     local source = ns.DB.librarySource
     if type(source)~="string" or (source~="all" and source~="favorites" and not ns.ThemeKeys[source]
